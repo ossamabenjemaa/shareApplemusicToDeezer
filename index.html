@@ -144,6 +144,33 @@
   .chip.exacte { color: var(--ok); background: var(--ok-bg); }
   .chip.probable { color: var(--warn); background: var(--warn-bg); }
   .chip.incertaine { color: var(--err); background: var(--err-bg); }
+  .chip.clickable { cursor: pointer; user-select: none; }
+  .explain {
+    display: none;
+    margin-top: 10px;
+    background: var(--mono-bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .explain.open { display: block; }
+  .explain p { margin: 0 0 8px; }
+  .explain p.last { margin: 8px 0 0; }
+  .explain .lvl {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+  }
+  .explain .lvl .chip { margin-top: 0; flex: none; }
+  .explain .lvl.current { border-color: var(--line); background: var(--card); }
+  .explain .lvl.current .now { display: inline; }
+  .explain .now { display: none; font-weight: 700; }
   .url {
     margin-top: 12px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -228,6 +255,37 @@
         </div>
       </div>
       <span id="confidence" class="chip"></span>
+      <div id="confExplain" class="explain">
+        <p><b>Comment la correspondance est trouvée ?</b> Il n'existe pas
+        d'identifiant commun public entre Apple Music et Deezer pour les titres.
+        La page compare donc le <b>titre</b> (accents, majuscules et suffixes
+        normalisés), l'<b>artiste</b> et la <b>durée</b> (le nombre de pistes
+        pour les albums). Selon ce qui concorde :</p>
+        <div class="lvl" data-conf="exacte">
+          <span class="chip exacte">✓ exacte</span>
+          <span>Titre, artiste et durée (à ±2 s) concordent parfaitement.
+          Pour un album Deezer → Apple Music, c'est même le code-barres
+          officiel de l'album (UPC) qui fait la correspondance : zéro
+          ambiguïté. <span class="now">← ce résultat</span></span>
+        </div>
+        <div class="lvl" data-conf="probable">
+          <span class="chip probable">≈ probable</span>
+          <span>L'artiste et la durée collent, mais le titre n'est pas écrit
+          exactement pareil des deux côtés : un « (feat. …) », « Remix » ou
+          « Radio Edit » affiché sur une plateforme et pas sur l'autre.
+          C'est presque toujours la bonne musique, simplement nommée
+          différemment. <span class="now">← ce résultat</span></span>
+        </div>
+        <div class="lvl" data-conf="incertaine">
+          <span class="chip incertaine">? à vérifier</span>
+          <span>La meilleure correspondance trouvée reste éloignée : titre
+          partiel, durée qui diverge ou artiste légèrement différent
+          (reprises, karaoké…). Écoute avant d'envoyer, ou regarde
+          « Autres candidats » juste en dessous. <span class="now">← ce résultat</span></span>
+        </div>
+        <p class="last">Et si rien d'assez proche n'est trouvé, la page n'invente
+        rien : elle affiche une erreur avec un lien de recherche manuelle.</p>
+      </div>
       <div class="url" id="rUrl"></div>
       <div class="actions">
         <a id="open" class="open" target="_blank" rel="noopener"></a>
@@ -374,10 +432,19 @@
     $('rArtist').textContent = (res.target.artist || res.source.artist || '') + (res.source.album && res.source.kind === 'track' ? ' · ' + res.source.album : '');
     var conf = res.target.confidence;
     var chip = $('confidence');
-    chip.className = 'chip ' + conf;
-    chip.textContent = conf === 'exacte' ? '✓ Correspondance exacte' + (res.target.via ? ' (code ' + res.target.via + ')' : '')
+    chip.className = 'chip clickable ' + conf;
+    chip.textContent = (conf === 'exacte' ? '✓ Correspondance exacte' + (res.target.via ? ' (code ' + res.target.via + ')' : '')
       : conf === 'probable' ? '≈ Correspondance probable'
-      : '? À vérifier';
+      : '? À vérifier') + ' ⓘ';
+    chip.title = 'Toucher pour comprendre ce statut';
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('tabindex', '0');
+    chip.setAttribute('aria-expanded', 'false');
+    var panel = $('confExplain');
+    panel.classList.remove('open');
+    Array.prototype.forEach.call(panel.querySelectorAll('.lvl'), function (row) {
+      row.classList.toggle('current', row.getAttribute('data-conf') === conf);
+    });
     $('rUrl').textContent = res.target.url;
     var open = $('open');
     open.href = res.target.url;
@@ -449,6 +516,15 @@
       })
       .then(function () { busy = false; });
   }
+
+  function toggleConfExplain() {
+    var open = $('confExplain').classList.toggle('open');
+    $('confidence').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  $('confidence').addEventListener('click', toggleConfExplain);
+  $('confidence').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleConfExplain(); }
+  });
 
   $('go').onclick = run;
   $('link').addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
