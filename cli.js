@@ -61,10 +61,17 @@ function fmtMeta(x) {
 }
 
 async function main() {
-  const input = process.argv.slice(2).join(' ').trim();
+  const args = process.argv.slice(2);
+  const toArg = (args.find((a) => a.startsWith('--to=')) || '').slice(5) || undefined;
+  const input = args.filter((a) => !a.startsWith('--')).join(' ').trim();
   if (!input) {
-    console.log('Usage : node cli.js <lien Apple Music ou Deezer>');
+    console.log('Usage : node cli.js [--to=youtube|ytmusic] <lien Apple Music ou Deezer>');
     console.log('Exemple: node cli.js "https://music.apple.com/fr/album/ghost/1634875613?i=1634875617"');
+    console.log('         node cli.js --to=youtube "https://www.deezer.com/fr/track/2096231467"');
+    process.exit(1);
+  }
+  if (toArg && toArg !== 'youtube' && toArg !== 'ytmusic') {
+    console.error('❌ Cible inconnue « ' + toArg + ' » (valeurs possibles : youtube, ytmusic).');
     process.exit(1);
   }
 
@@ -74,7 +81,7 @@ async function main() {
     parsed = parseMusicLink(full);
   }
 
-  const result = await convert(parsed, { fetchJson });
+  const result = await convert(parsed, { fetchJson, to: toArg });
   const kindLabel = result.source.kind === 'album' ? 'album' : 'titre';
 
   console.log('🎵 Source (' + platformLabel(result.source.platform) + ', ' + kindLabel + ')');
@@ -84,7 +91,11 @@ async function main() {
   console.log('   ' + fmtMeta(result.target));
   console.log('   ' + result.target.url);
   console.log('');
-  console.log('Fiabilité : ' + result.target.confidence + (result.target.via ? ' (via code ' + result.target.via + ')' : ''));
+  if (result.target.confidence === 'recherche') {
+    console.log('Fiabilité : lien de recherche (le premier résultat est en général le bon)');
+  } else {
+    console.log('Fiabilité : ' + result.target.confidence + (result.target.via ? ' (via code ' + result.target.via + ')' : ''));
+  }
 
   if (result.target.confidence !== 'exacte' && result.alternatives.length) {
     console.log('');
@@ -92,6 +103,13 @@ async function main() {
     for (const alt of result.alternatives) {
       console.log('   - ' + fmtMeta(alt) + ' → ' + alt.url);
     }
+  }
+
+  if (result.target.confidence !== 'recherche' && result.extras) {
+    console.log('');
+    console.log('Aussi :');
+    console.log('   YouTube       → ' + result.extras.youtube);
+    console.log('   YouTube Music → ' + result.extras.ytmusic);
   }
 }
 

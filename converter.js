@@ -169,7 +169,20 @@
   }
 
   function platformLabel(p) {
-    return p === 'apple' ? 'Apple Music' : 'Deezer';
+    if (p === 'apple') return 'Apple Music';
+    if (p === 'youtube') return 'YouTube';
+    if (p === 'ytmusic') return 'YouTube Music';
+    return 'Deezer';
+  }
+
+  // YouTube n'a pas d'API publique sans clé : on génère des liens de
+  // recherche « artiste titre » — le premier résultat est en général le bon.
+  function youtubeSearchUrls(meta) {
+    var query = cleanQuotes((meta.artist || '') + ' ' + (meta.title || ''));
+    return {
+      youtube: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query),
+      ytmusic: 'https://music.youtube.com/search?q=' + encodeURIComponent(query)
+    };
   }
 
   function manualSearchUrl(platform, src) {
@@ -258,8 +271,88 @@
       },
       alternatives: scored.slice(1, 4)
         .filter(function (x) { return x.s >= 3; })
-        .map(function (x) { return x.c; })
+        .map(function (x) { return x.c; }),
+      extras: youtubeSearchUrls(src)
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Métadonnées source seules (pour les cibles « recherche » YouTube)   */
+  /* ------------------------------------------------------------------ */
+
+  function appleSourceMeta(parsed, fetchJson) {
+    return fetchJson(ITUNES + '/lookup?' + q({ id: parsed.id, country: parsed.country || 'fr' }))
+      .then(function (lu) {
+        var results = lu.results || [];
+        if (parsed.kind === 'track') {
+          var r = results.filter(function (x) { return x.kind === 'song'; })[0];
+          if (!r) throw new Error('Titre introuvable sur Apple Music (id ' + parsed.id + ').');
+          return {
+            platform: 'apple', kind: 'track',
+            title: r.trackName, artist: r.artistName, album: r.collectionName,
+            durationSec: r.trackTimeMillis ? Math.round(r.trackTimeMillis / 1000) : null,
+            artwork: r.artworkUrl100,
+            url: cleanAppleUrl(r.trackViewUrl) || parsed.url
+          };
+        }
+        var c = results.filter(function (x) { return x.wrapperType === 'collection'; })[0];
+        if (!c) throw new Error('Album introuvable sur Apple Music (id ' + parsed.id + ').');
+        return {
+          platform: 'apple', kind: 'album',
+          title: c.collectionName, artist: c.artistName,
+          count: c.trackCount || null, artwork: c.artworkUrl100,
+          url: cleanAppleUrl(c.collectionViewUrl) || parsed.url
+        };
+      });
+  }
+
+  function deezerSourceMeta(parsed, fetchJson) {
+    var path = parsed.kind === 'track' ? '/track/' : '/album/';
+    return fetchJson(DEEZER + path + parsed.id, { jsonp: true }).then(function (t) {
+      if (!t || t.error) {
+        throw new Error((parsed.kind === 'track' ? 'Titre' : 'Album') + ' introuvable sur Deezer (id ' + parsed.id + ').');
+      }
+      if (parsed.kind === 'track') {
+        return {
+          platform: 'deezer', kind: 'track',
+          title: t.title, artist: t.artist && t.artist.name,
+          album: t.album && t.album.title,
+          durationSec: t.duration || null, isrc: t.isrc || null,
+          artwork: t.album && t.album.cover_medium,
+          url: t.link || parsed.url
+        };
+      }
+      return {
+        platform: 'deezer', kind: 'album',
+        title: t.title, artist: t.artist && t.artist.name,
+        count: t.nb_tracks || null, upc: t.upc || null,
+        artwork: t.cover_medium,
+        url: t.link || parsed.url
+      };
+    });
+  }
+
+  // Cible YouTube / YouTube Music : on ne fait que lire les métadonnées de
+  // la source puis on construit le lien de recherche.
+  function toYouTube(parsed, fetchJson, flavor) {
+    var metaP = parsed.platform === 'apple'
+      ? appleSourceMeta(parsed, fetchJson)
+      : deezerSourceMeta(parsed, fetchJson);
+    return metaP.then(function (src) {
+      var urls = youtubeSearchUrls(src);
+      return {
+        source: src,
+        target: {
+          platform: flavor, kind: 'search',
+          title: src.title, artist: src.artist,
+          url: flavor === 'ytmusic' ? urls.ytmusic : urls.youtube,
+          artwork: src.artwork,
+          confidence: 'recherche'
+        },
+        alternatives: [],
+        extras: urls
+      };
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -372,7 +465,8 @@
               artwork: r.artworkUrl100,
               confidence: 'exacte', via: 'UPC'
             },
-            alternatives: []
+            alternatives: [],
+            extras: youtubeSearchUrls(src)
           };
         }
         // Pas de correspondance UPC : repli sur la recherche classique.
@@ -400,6 +494,8 @@
 
   // input : lien (string) ou objet déjà passé par parseMusicLink.
   // opts.fetchJson(url, {jsonp}) : transport réseau fourni par l'appelant.
+  // opts.to : cible forcée — 'youtube' ou 'ytmusic' (lien de recherche) ;
+  //           absent = plateforme opposée (Apple ↔ Deezer).
   function convert(input, opts) {
     return Promise.resolve().then(function () {
       if (!opts || typeof opts.fetchJson !== 'function') {
@@ -413,6 +509,7 @@
         );
       }
       var fetchJson = opts.fetchJson;
+      if (opts.to === 'youtube' || opts.to === 'ytmusic') return toYouTube(parsed, fetchJson, opts.to);
       if (parsed.platform === 'apple' && parsed.kind === 'track') return appleTrackToDeezer(parsed, fetchJson);
       if (parsed.platform === 'apple' && parsed.kind === 'album') return appleAlbumToDeezer(parsed, fetchJson);
       if (parsed.platform === 'deezer' && parsed.kind === 'track') return deezerTrackToApple(parsed, fetchJson);
