@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Passerelle musicale — Apple Music ↔ Deezer</title>
+<meta name="description" content="Convertis un lien Apple Music en lien Deezer (et inversement), directement dans le navigateur.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858593' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Passerelle">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0e">
+<style>
+  :root {
+    color-scheme: light dark;
+    --apple: #fa233b;
+    --deezer: #a238ff;
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #111113;
+    --muted: #6b6b76;
+    --line: #e4e4ea;
+    --subtle: #f2f2f7;
+    --btn-bg: #111113;
+    --btn-bg-hover: #26262b;
+    --btn-fg: #ffffff;
+    --ok: #17994b;
+    --warn: #b47d00;
+    --err: #c93025;
+    --yt: #e51b1b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141417;
+      --text: #f4f4f6;
+      --muted: #9a9aa6;
+      --line: #26262c;
+      --subtle: #1b1b1f;
+      --btn-bg: #f4f4f6;
+      --btn-bg-hover: #ffffff;
+      --btn-fg: #111113;
+      --ok: #45c078;
+      --warn: #d4a437;
+      --err: #e57368;
+      --yt: #ff5449;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    padding: 32px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 440px; margin: 0 auto; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .ico { flex: none; }
+
+  /* ---------- En-tête ---------- */
+  header { margin-bottom: 24px; }
+  .eyebrow {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+  h1 .arr { color: var(--muted); font-weight: 400; padding: 0 3px; }
+  .bdot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: 2px;
+  }
+  .bdot.apple { background: var(--apple); }
+  .bdot.deezer { background: var(--deezer); }
+  .sub { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+
+  /* ---------- Carte principale ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; }
+  input[type="url"], input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    transition: border-color 150ms ease;
+  }
+  input::placeholder { color: color-mix(in srgb, var(--muted) 65%, transparent); }
+  input:focus { border-color: color-mix(in srgb, var(--text) 35%, var(--line)); }
+
+  button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:active { transform: scale(0.99); }
+
+  .icon-btn {
+    flex: none;
+    width: 44px; height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--muted);
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .icon-btn:hover { background: var(--subtle); color: var(--text); }
+
+  .go {
+    width: 100%;
+    margin-top: 10px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--btn-bg);
+    color: var(--btn-fg);
+    font-size: 15px;
+    font-weight: 600;
+    transition: background-color 150ms ease;
+  }
+  .go:hover { background: var(--btn-bg-hover); }
+
+  /* ---------- Statut (chargement / erreur) ---------- */
+  .status { margin-top: 14px; font-size: 13px; color: var(--muted); display: none; }
+  .status.loading { display: flex; align-items: center; gap: 10px; }
+  .status.error {
+    display: block;
+    padding: 11px 13px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--err) 7%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--err) 30%, transparent);
+    color: var(--err);
+  }
+  .status a { color: inherit; font-weight: 600; text-underline-offset: 2px; }
+  .spin {
+    width: 16px; height: 16px; flex: none;
+    border: 2px solid var(--line);
+    border-top-color: var(--muted);
+    border-radius: 50%;
+    animation: r 0.8s linear infinite;
+  }
+  @keyframes r { to { transform: rotate(360deg); } }
+
+  /* ---------- Résultat ---------- */
+  .result {
+    display: none;
+    margin-top: 16px;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    animation: rise 180ms ease;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .overline {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .meta { display: flex; gap: 12px; align-items: center; }
+  .meta img {
+    width: 56px; height: 56px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--subtle);
+    flex: none;
+  }
+  .meta .t { font-weight: 600; line-height: 1.3; }
+  .meta .a { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* Indicateur de fiabilité : point coloré + libellé neutre + icône info */
+  .conf {
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--subtle);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 150ms ease;
+  }
+  .conf:hover { border-color: color-mix(in srgb, var(--muted) 40%, var(--line)); }
+  .conf .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+  .conf.exacte .dot { background: var(--ok); }
+  .conf.probable .dot { background: var(--warn); }
+  .conf.incertaine .dot { background: var(--err); }
+  .conf.recherche .dot { background: var(--yt); }
+  .conf .ico { color: var(--muted); }
+
+  .explain {
+    display: none;
+    margin-top: 10px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--subtle);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .explain.open { display: block; }
+  .explain p { margin: 0 0 10px; }
+  .explain p.last { margin: 10px 0 0; }
+  .explain strong { color: var(--text); font-weight: 600; }
+  .lvl {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    padding: 9px 10px;
+    margin: 0 -2px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+  }
+  .lvl + .lvl { margin-top: 2px; }
+  .lvl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 5px; }
+  .lvl[data-conf="exacte"] .lvl-dot { background: var(--ok); }
+  .lvl[data-conf="probable"] .lvl-dot { background: var(--warn); }
+  .lvl[data-conf="incertaine"] .lvl-dot { background: var(--err); }
+  .lvl[data-conf="recherche"] .lvl-dot { background: var(--yt); }
+  .lvl.current { border-color: var(--line); background: var(--surface); }
+  .now { display: none; font-weight: 600; color: var(--text); }
+  .lvl.current .now { display: inline; }
+
+  .url {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--subtle);
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    word-break: break-all;
+    color: var(--muted);
+  }
+
+  /* NB : #confExplain reçoit aussi la classe « open » (contrat JS),
+     d'où le scope .actions pour le bouton plateforme. */
+  .actions { margin-top: 12px; display: grid; gap: 8px; }
+  .actions .open {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 150ms ease;
+  }
+  .actions .open:active { transform: scale(0.99); }
+  .actions .open.apple { background: var(--apple); }
+  .actions .open.apple:hover { background: color-mix(in srgb, var(--apple) 90%, #000); }
+  .actions .open.deezer { background: var(--deezer); }
+  .actions .open.deezer:hover { background: color-mix(in srgb, var(--deezer) 90%, #000); }
+  .actions .open.youtube, .actions .open.ytmusic { background: var(--yt); }
+  .actions .open.youtube:hover, .actions .open.ytmusic:hover { background: color-mix(in srgb, var(--yt) 90%, #000); }
+  .actions .open .ico { opacity: 0.85; }
+  .pair { display: flex; gap: 8px; }
+  .pair button {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 150ms ease;
+  }
+  .pair button:hover { background: var(--subtle); }
+  .pair .ico { color: var(--muted); }
+  #copy .ico-check { display: none; color: var(--ok); }
+  #copy.flashed .ico-copy { display: none; }
+  #copy.flashed .ico-check { display: block; }
+
+  details { margin-top: 14px; }
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    list-style: none;
+    user-select: none;
+    transition: color 150ms ease;
+  }
+  summary:hover { color: var(--text); }
+  summary::-webkit-details-marker { display: none; }
+  summary .chev { transition: transform 150ms ease; }
+  details[open] summary .chev { transform: rotate(90deg); }
+  details ul { margin: 2px 0 0; padding: 0; list-style: none; }
+  details li + li { border-top: 1px solid var(--line); }
+  details li a {
+    display: block;
+    padding: 9px 0 9px 22px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  details li a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+
+  .songlink {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .songlink:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+  .also { margin-top: 12px; text-align: center; font-size: 13px; color: var(--muted); }
+  .also a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .also a:hover { color: var(--text); }
+
+  /* ---------- Historique ---------- */
+  .history { margin-top: 28px; }
+  .history h2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #clearHistory {
+    min-height: 44px;
+    padding: 0 12px;
+    margin-right: -12px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  #clearHistory:hover { background: var(--subtle); color: var(--text); }
+  .history ul { margin: 6px 0 0; padding: 0; list-style: none; }
+  .history li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 8px 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+  .history .info { flex: 1; min-width: 0; }
+  .history .info .t {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history .info .d { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 150ms ease;
+  }
+  .mini:hover { background: var(--subtle); }
+
+  footer { margin-top: 32px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
+  footer p { margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Passerelle musicale</p>
+    <h1><span class="bdot apple" aria-hidden="true"></span>Apple Music<span class="arr">↔</span><span class="bdot deezer" aria-hidden="true"></span>Deezer</h1>
+    <p class="sub">Colle un lien de titre ou d'album, récupère son équivalent sur l'autre plateforme.</p>
+  </header>
+
+  <div class="card">
+    <label for="link">Ton lien (titre ou album)</label>
+    <div class="row">
+      <input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+             placeholder="https://music.apple.com/… ou https://www.deezer.com/…">
+      <button id="paste" type="button" class="icon-btn" title="Coller depuis le presse-papiers" aria-label="Coller depuis le presse-papiers">
+        <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+      </button>
+    </div>
+    <button id="go" class="go" type="button">Convertir</button>
+
+    <div id="status" class="status"></div>
+
+    <div id="result" class="result">
+      <span id="direction" class="overline"></span>
+      <div class="meta">
+        <img id="artwork" alt="" src="" referrerpolicy="no-referrer">
+        <div>
+          <div class="t" id="rTitle"></div>
+          <div class="a" id="rArtist"></div>
+        </div>
+      </div>
+      <span id="confidence" class="conf">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="confLabel"></span>
+        <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      </span>
+      <div id="confExplain" class="explain">
+        <p><strong>Comment la correspondance est trouvée ?</strong> Il n'existe pas
+        d'identifiant commun public entre Apple Music et Deezer pour les titres.
+        La page compare donc le <strong>titre</strong> (accents, majuscules et suffixes
+        normalisés), l'<strong>artiste</strong> et la <strong>durée</strong> (le nombre de pistes
+        pour les albums). Selon ce qui concorde :</p>
+        <div class="lvl" data-conf="exacte">
+          <span class="lvl-dot" aria-hidden="true"></span>
+          <span><strong>Exacte.</strong> Titre, artiste et durée (à ±2 s) concordent
+          parfaitement. Pour un album Deezer → Apple Music, c'est même le
+          code-barres officiel de l'album (UPC) qui fait la correspondance :
+          zéro ambiguïté. <span class="now">← ce résultat</span></span>
+        </div>
+        <div class="lvl" data-conf="probable">
+          <span class="lvl-dot" aria-hidden="true"></span>
+          <span><strong>Probable.</strong> L'artiste et la durée collent, mais le titre
+          n'est pas écrit exactement pareil des deux côtés : un « (feat. …) »,
+          « Remix » ou « Radio Edit » affiché sur une plateforme et pas sur
+          l'autre. C'est presque toujours la bonne musique, simplement nommée
+          différemment. <span class="now">← ce résultat</span></span>
+        </div>
+        <div class="lvl" data-conf="incertaine">
+          <span class="lvl-dot" aria-hidden="true"></span>
+          <span><strong>À vérifier.</strong> La meilleure correspondance trouvée reste
+          éloignée : titre partiel, durée qui diverge ou artiste légèrement
+          différent (reprises, karaoké…). Écoute avant d'envoyer, ou regarde
+          « Autres candidats » juste en dessous. <span class="now">← ce résultat</span></span>
+        </div>
+        <div class="lvl" data-conf="recherche">
+          <span class="lvl-dot" aria-hidden="true"></span>
+          <span><strong>Lien de recherche.</strong> YouTube n'a pas d'API publique
+          sans clé : le lien ouvre la recherche « artiste titre » — le premier
+          résultat est en général le bon. <span class="now">← ce résultat</span></span>
+        </div>
+        <p class="last">Et si rien d'assez proche n'est trouvé, la page n'invente
+        rien : elle affiche une erreur avec un lien de recherche manuelle.</p>
+      </div>
+      <div class="url" id="rUrl"></div>
+      <div class="actions">
+        <a id="open" class="open" target="_blank" rel="noopener">
+          <span id="openLabel" class="btn-label"></span>
+          <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </a>
+        <div class="pair">
+          <button id="copy" type="button">
+            <svg class="ico ico-copy" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg class="ico ico-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="btn-label">Copier le lien</span>
+          </button>
+          <button id="share" type="button">
+            <svg class="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+            <span class="btn-label">Partager…</span>
+          </button>
+        </div>
+      </div>
+      <div id="alsoRow" class="also" hidden>
+        Aussi sur&nbsp;: <a id="alsoYt" target="_blank" rel="noopener">YouTube</a> · <a id="alsoYtm" target="_blank" rel="noopener">YouTube Music</a>
+      </div>
+      <details id="altBox" hidden>
+        <summary>
+          <svg class="chev ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          <span>Pas la bonne version ? Autres candidats</span>
+        </summary>
+        <ul id="altList"></ul>
+      </details>
+      <a id="songlink" class="songlink" target="_blank" rel="noopener">
+        <span>Voir sur toutes les plateformes (song.link)</span>
+        <svg class="ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="history" id="historyBox" hidden>
+    <h2><span>Conversions récentes</span> <button id="clearHistory" type="button">Effacer</button></h2>
+    <ul id="historyList"></ul>
+  </div>
+
+  <footer>
+    <p>POC 100 % navigateur — APIs publiques iTunes &amp; Deezer, aucun compte, aucune clé.</p>
+    <p>Astuce iPhone : ajoute le raccourci « Partager sur Deezer » (voir le README du projet).</p>
+  </footer>
+</div>
+
+<script src="../converter.js"></script>
+<script>
+(function () {
+  'use strict';
+  var MC = window.MusicConverter;
+  var $ = function (id) { return document.getElementById(id); };
+  var HISTORY_KEY = 'mlc:history';
+
+  /* ---------- Transport réseau : fetch pour iTunes, JSONP pour Deezer ---------- */
+  var jsonpSeq = 0;
+  function jsonpFetch(url) {
+    return new Promise(function (resolve, reject) {
+      var cb = '__mlcJsonp' + (jsonpSeq++);
+      var script = document.createElement('script');
+      var timer = setTimeout(function () { cleanup(); reject(new Error('Deezer ne répond pas (timeout).')); }, 15000);
+      function cleanup() {
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+      window[cb] = function (data) { cleanup(); resolve(data); };
+      script.onerror = function () { cleanup(); reject(new Error('Erreur réseau vers Deezer.')); };
+      script.src = url + (url.indexOf('?') !== -1 ? '&' : '?') + 'output=jsonp&callback=' + cb;
+      document.head.appendChild(script);
+    });
+  }
+  function fetchJson(url, opts) {
+    if (opts && opts.jsonp) return jsonpFetch(url);
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('Erreur réseau (HTTP ' + res.status + ').');
+      return res.json();
+    });
+  }
+
+  /* ---------- Presse-papiers / partage ---------- */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); resolve(); } catch (e) { reject(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  // Ne remplace que le libellé (span .btn-label) pour ne pas détruire l'icône SVG.
+  function flash(btn, label) {
+    var target = btn.querySelector('.btn-label') || btn;
+    var old = target.textContent;
+    target.textContent = label;
+    btn.classList.add('flashed');
+    setTimeout(function () { target.textContent = old; btn.classList.remove('flashed'); }, 1400);
+  }
+
+  /* ---------- Historique ---------- */
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+  }
+  function saveHistory(list) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) {}
+  }
+  function pushHistory(entry) {
+    var list = loadHistory().filter(function (x) { return x.url !== entry.url; });
+    list.unshift(entry);
+    saveHistory(list);
+    renderHistory();
+  }
+  function renderHistory() {
+    var list = loadHistory();
+    $('historyBox').hidden = list.length === 0;
+    var ul = $('historyList');
+    ul.innerHTML = '';
+    list.forEach(function (x) {
+      var li = document.createElement('li');
+      var info = document.createElement('div');
+      info.className = 'info';
+      var t = document.createElement('div');
+      t.className = 't';
+      t.textContent = x.title + ' — ' + x.artist;
+      var d = document.createElement('div');
+      d.className = 'd';
+      d.textContent = x.dir;
+      info.appendChild(t); info.appendChild(d);
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'mini';
+      copyBtn.textContent = 'Copier';
+      copyBtn.onclick = function () {
+        copyText(x.url).then(function () { flash(copyBtn, 'Copié'); });
+      };
+      var openA = document.createElement('a');
+      openA.className = 'mini';
+      openA.textContent = 'Ouvrir';
+      openA.href = x.url;
+      openA.target = '_blank';
+      openA.rel = 'noopener';
+      li.appendChild(info); li.appendChild(copyBtn); li.appendChild(openA);
+      ul.appendChild(li);
+    });
+  }
+  $('clearHistory').onclick = function () { saveHistory([]); renderHistory(); };
+
+  /* ---------- Affichage ---------- */
+  function setStatus(kind, html) {
+    var el = $('status');
+    el.className = 'status' + (kind ? ' ' + kind : '');
+    el.innerHTML = html || '';
+    el.style.display = html ? (kind === 'loading' ? 'flex' : 'block') : 'none';
+  }
+  function showResult(res) {
+    var from = MC.platformLabel(res.source.platform);
+    var to = MC.platformLabel(res.target.platform);
+    var kind = res.source.kind === 'album' ? 'album' : 'titre';
+    $('direction').textContent = from + ' → ' + to + ' · ' + kind;
+    $('artwork').src = res.target.artwork || res.source.artwork || '';
+    $('rTitle').textContent = res.target.title || res.source.title;
+    $('rArtist').textContent = (res.target.artist || res.source.artist || '') + (res.source.album && res.source.kind === 'track' ? ' · ' + res.source.album : '');
+    var conf = res.target.confidence;
+    var chip = $('confidence');
+    chip.className = 'conf ' + conf;
+    $('confLabel').textContent = conf === 'exacte' ? 'Correspondance exacte' + (res.target.via ? ' · code ' + res.target.via : '')
+      : conf === 'probable' ? 'Correspondance probable'
+      : conf === 'recherche' ? 'Lien de recherche'
+      : 'À vérifier';
+    chip.title = 'Toucher pour comprendre ce statut';
+    chip.setAttribute('role', 'button');
+    chip.setAttribute('tabindex', '0');
+    chip.setAttribute('aria-expanded', 'false');
+    var panel = $('confExplain');
+    panel.classList.remove('open');
+    Array.prototype.forEach.call(panel.querySelectorAll('.lvl'), function (row) {
+      row.classList.toggle('current', row.getAttribute('data-conf') === conf);
+    });
+    $('rUrl').textContent = res.target.url;
+    var open = $('open');
+    open.href = res.target.url;
+    $('openLabel').textContent = 'Ouvrir sur ' + to;
+    open.className = 'open ' + res.target.platform;
+    $('songlink').href = 'https://song.link/' + encodeURIComponent(res.source.url);
+
+    var also = $('alsoRow');
+    if (res.extras && conf !== 'recherche') {
+      $('alsoYt').href = res.extras.youtube;
+      $('alsoYtm').href = res.extras.ytmusic;
+      also.hidden = false;
+    } else {
+      also.hidden = true;
+    }
+
+    var alts = res.alternatives || [];
+    $('altBox').hidden = alts.length === 0;
+    var ul = $('altList');
+    ul.innerHTML = '';
+    alts.forEach(function (a) {
+      var li = document.createElement('li');
+      var link = document.createElement('a');
+      link.href = a.url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = a.title + ' — ' + (a.album || a.artist || '');
+      li.appendChild(link);
+      ul.appendChild(li);
+    });
+
+    $('copy').onclick = function () {
+      copyText(res.target.url).then(function () { flash($('copy'), 'Copié'); });
+    };
+    var shareBtn = $('share');
+    if (navigator.share) {
+      shareBtn.style.display = '';
+      shareBtn.onclick = function () {
+        navigator.share({
+          title: (res.target.title || '') + ' — ' + (res.target.artist || ''),
+          url: res.target.url
+        }).catch(function () {});
+      };
+    } else {
+      shareBtn.style.display = 'none';
+    }
+
+    $('result').style.display = 'block';
+    pushHistory({
+      title: res.target.title || res.source.title,
+      artist: res.target.artist || res.source.artist || '',
+      url: res.target.url,
+      dir: from + ' → ' + to,
+      ts: Date.now()
+    });
+  }
+
+  /* ---------- Conversion ---------- */
+  var busy = false;
+  function run() {
+    if (busy) return;
+    var value = $('link').value.trim();
+    if (!value) { setStatus('error', 'Colle d’abord un lien Apple Music ou Deezer.'); return; }
+    busy = true;
+    $('result').style.display = 'none';
+    setStatus('loading', '<span class="spin" aria-hidden="true"></span><span>Recherche de la correspondance…</span>');
+    MC.convert(value, { fetchJson: fetchJson, to: toParam })
+      .then(function (res) {
+        setStatus('', '');
+        showResult(res);
+      })
+      .catch(function (err) {
+        var html = err.message;
+        if (err.searchUrl) {
+          html += ' <a href="' + err.searchUrl + '" target="_blank" rel="noopener">Chercher manuellement</a>';
+        }
+        setStatus('error', html);
+      })
+      .then(function () { busy = false; });
+  }
+
+  function toggleConfExplain() {
+    var open = $('confExplain').classList.toggle('open');
+    $('confidence').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  $('confidence').addEventListener('click', toggleConfExplain);
+  $('confidence').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleConfExplain(); }
+  });
+
+  $('go').onclick = run;
+  $('link').addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
+  $('link').addEventListener('paste', function () { setTimeout(run, 60); });
+  $('paste').onclick = function () {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (text) {
+        if (text) { $('link').value = text.trim(); run(); }
+      }).catch(function () {
+        $('link').focus();
+        setStatus('error', 'Impossible de lire le presse-papiers — colle le lien à la main.');
+      });
+    } else {
+      $('link').focus();
+    }
+  };
+
+  /* ---------- Paramètres ?to= et ?url= (raccourcis iOS / partage) ---------- */
+  var qs = window.location.search.slice(1);
+  var toParam = (qs.match(/(?:^|&)to=(youtube|ytmusic)(?:&|$)/) || [])[1];
+  var m = qs.match(/(?:^|&)(?:url|q|link)=(.+)$/);
+  if (m) {
+    var raw = m[1];
+    try { raw = decodeURIComponent(raw); } catch (e) {}
+    $('link').value = raw;
+    run();
+  }
+
+  renderHistory();
+})();
+</script>
+</body>
+</html>

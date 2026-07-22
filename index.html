@@ -2,557 +2,606 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<script>
+/* Compat : les anciens raccourcis iOS pointent la racine avec ?url= —
+   on redirige vers le convertisseur (./app/) avant tout rendu. */
+if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
+  location.replace('app/' + location.search);
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Passerelle musicale — Apple Music ↔ Deezer</title>
-<meta name="description" content="Convertis un lien Apple Music en lien Deezer (et inversement), directement dans le navigateur.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎶</text></svg>">
+<meta name="description" content="Colle un lien Apple Music, récupère le lien Deezer exact — et inversement. Gratuit, sans compte, directement dans le navigateur. Raccourci iPhone pour partager en deux taps.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3E*%7Bfill:%23111113%7D@media(prefers-color-scheme:dark)%7B*%7Bfill:%23f4f4f6%7D%7D%3C/style%3E%3Cpath%20d='M12,4.5L27.5,2.5v3L12,7.5z'/%3E%3Cpath%20d='M12,9.5L27.5,7.5v3L12,12.5z'/%3E%3Crect%20x='12'%20y='4.5'%20width='2'%20height='19'/%3E%3Crect%20x='25.5'%20y='2.5'%20width='2'%20height='19'/%3E%3Cellipse%20cx='10.2'%20cy='23.5'%20rx='3.8'%20ry='2.8'/%3E%3Cellipse%20cx='23.7'%20cy='21.5'%20rx='3.8'%20ry='2.8'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Passerelle">
-<meta name="theme-color" content="#12111a">
 <style>
   :root {
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --text: #111113;
+    --muted: #6b6b76;
+    --border: #e4e4ea;
+    --subtle: #f2f2f7;
     --apple: #fa233b;
     --deezer: #a238ff;
-    --bg: #f5f3fa;
-    --card: #ffffff;
-    --text: #1c1b22;
-    --muted: #6d6a7c;
-    --line: #e8e5f1;
-    --mono-bg: #f3f1f9;
-    --ok: #12833b;
-    --ok-bg: #e3f6ea;
-    --warn: #8a6100;
-    --warn-bg: #fdf3d7;
-    --err: #b3261e;
-    --err-bg: #fdecea;
+    --cta-bg: #111113;
+    --cta-fg: #ffffff;
+    --var-fg: #7a1fd6;
+    --var-bg: rgba(162, 56, 255, .10);
+    --var-border: rgba(162, 56, 255, .30);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .05);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0f0e15;
-      --card: #191722;
-      --text: #f2f0f7;
-      --muted: #9b97ab;
-      --line: #2a2737;
-      --mono-bg: #211f2d;
-      --ok: #5ad189;
-      --ok-bg: #143323;
-      --warn: #f0c34e;
-      --warn-bg: #332a10;
-      --err: #ff8a80;
-      --err-bg: #3a1512;
+      --bg: #0c0c0e;
+      --surface: #141417;
+      --text: #f4f4f6;
+      --muted: #9a9aa6;
+      --border: #26262c;
+      --subtle: #1b1b1f;
+      --cta-bg: #f4f4f6;
+      --cta-fg: #0c0c0e;
+      --var-fg: #c99cff;
+      --var-bg: rgba(162, 56, 255, .16);
+      --var-border: rgba(162, 56, 255, .42);
     }
   }
+
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    padding: 24px 16px 40px;
-    background:
-      radial-gradient(60% 40% at 15% 0%, color-mix(in srgb, var(--apple) 14%, transparent), transparent 70%),
-      radial-gradient(60% 40% at 85% 0%, color-mix(in srgb, var(--deezer) 16%, transparent), transparent 70%),
-      var(--bg);
+    background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    min-height: 100dvh;
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  .wrap { max-width: 520px; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 20px; }
-  h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.02em; }
-  .sub { margin: 0; color: var(--muted); font-size: 0.95rem; }
-  .sub b.apple { color: var(--apple); }
-  .sub b.deezer { color: var(--deezer); }
+  .container { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+  h1, h2, h3, p, figure { margin: 0; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 4px; }
 
   .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    padding: 18px;
-    box-shadow: 0 10px 30px rgba(20, 10, 60, 0.08);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
   }
-  label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
-  .row { display: flex; gap: 8px; }
-  input[type="url"], input[type="text"] {
-    flex: 1;
-    min-width: 0;
-    padding: 13px 14px;
-    border-radius: 12px;
-    border: 1.5px solid var(--line);
-    background: var(--mono-bg);
-    color: var(--text);
-    font-size: 0.95rem;
-    outline: none;
-  }
-  input:focus { border-color: var(--deezer); }
-  button {
-    font: inherit;
-    border: none;
-    cursor: pointer;
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-weight: 600;
-    color: var(--text);
-    background: var(--mono-bg);
-    border: 1.5px solid var(--line);
-  }
-  button:active { transform: scale(0.98); }
-  .go {
-    width: 100%;
-    margin-top: 10px;
-    padding: 14px;
-    font-size: 1.02rem;
-    color: #fff;
-    border: none;
-    background: linear-gradient(90deg, var(--apple), var(--deezer));
-  }
-  .status { margin-top: 14px; font-size: 0.92rem; color: var(--muted); display: none; }
-  .status.error { display: block; background: var(--err-bg); color: var(--err); padding: 12px 14px; border-radius: 12px; }
-  .status.loading { display: flex; align-items: center; gap: 10px; }
-  .spin {
-    width: 18px; height: 18px; flex: none;
-    border: 2.5px solid var(--line);
-    border-top-color: var(--deezer);
-    border-radius: 50%;
-    animation: r 0.8s linear infinite;
-  }
-  @keyframes r { to { transform: rotate(360deg); } }
-  .status a { color: inherit; font-weight: 600; }
 
-  .result { display: none; margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px; }
-  .badge {
-    display: inline-block;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--muted);
-    background: var(--mono-bg);
-    border: 1px solid var(--line);
-    padding: 5px 10px;
-    border-radius: 999px;
-    margin-bottom: 12px;
-  }
-  .meta { display: flex; gap: 12px; align-items: center; }
-  .meta img { width: 64px; height: 64px; border-radius: 12px; flex: none; background: var(--mono-bg); }
-  .meta .t { font-weight: 700; line-height: 1.25; }
-  .meta .a { color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
-  .chip {
-    display: inline-block;
-    font-size: 0.78rem;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 999px;
-    margin-top: 12px;
-  }
-  .chip.exacte { color: var(--ok); background: var(--ok-bg); }
-  .chip.probable { color: var(--warn); background: var(--warn-bg); }
-  .chip.incertaine { color: var(--err); background: var(--err-bg); }
-  .chip.clickable { cursor: pointer; user-select: none; }
-  .explain {
-    display: none;
-    margin-top: 10px;
-    background: var(--mono-bg);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 12px 14px;
-    font-size: 0.85rem;
-    color: var(--muted);
-    line-height: 1.5;
-  }
-  .explain.open { display: block; }
-  .explain p { margin: 0 0 8px; }
-  .explain p.last { margin: 8px 0 0; }
-  .explain .lvl {
-    display: flex;
+  /* ---------- Hero ---------- */
+  .hero { padding-top: 72px; text-align: center; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
     gap: 10px;
-    align-items: flex-start;
-    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hero h1 {
+    margin: 18px auto 14px;
+    font-size: clamp(32px, 6vw, 40px);
+    font-weight: 650;
+    letter-spacing: -.03em;
+    line-height: 1.12;
+  }
+  .lead {
+    max-width: 52ch;
+    margin: 0 auto;
+    font-size: 16px;
+    color: var(--muted);
+  }
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
     border: 1px solid transparent;
     border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity .15s ease, background-color .15s ease, border-color .15s ease;
   }
-  .explain .lvl .chip { margin-top: 0; flex: none; }
-  .explain .lvl.current { border-color: var(--line); background: var(--card); }
-  .explain .lvl.current .now { display: inline; }
-  .explain .now { display: none; font-weight: 700; }
-  .url {
-    margin-top: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.8rem;
-    background: var(--mono-bg);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px;
-    word-break: break-all;
+  .btn-primary { background: var(--cta-bg); color: var(--cta-fg); }
+  .btn-primary:hover { opacity: .85; }
+  .btn-ghost { background: var(--surface); border-color: var(--border); color: var(--text); }
+  .btn-ghost:hover { background: var(--subtle); }
+
+  /* ---------- Démo ---------- */
+  .demo { margin: 48px 0 0; padding: 20px; text-align: left; }
+  .demo-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
     color: var(--muted);
   }
-  .actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
-  .actions .open {
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot-apple { background: var(--apple); }
+  .dot-deezer { background: var(--deezer); }
+  .dot-youtube { background: #ff0000; }
+  .demo-url {
     display: block;
-    text-align: center;
-    text-decoration: none;
-    color: #fff;
-    font-weight: 700;
-    padding: 14px;
-    border-radius: 12px;
-    font-size: 1rem;
-  }
-  .open.deezer { background: var(--deezer); }
-  .open.apple { background: var(--apple); }
-  .actions .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  details { margin-top: 12px; }
-  summary { cursor: pointer; font-size: 0.88rem; color: var(--muted); font-weight: 600; }
-  details ul { margin: 8px 0 0; padding-left: 18px; }
-  details li { font-size: 0.86rem; margin-bottom: 6px; }
-  details a { color: inherit; }
-  .songlink { display: block; text-align: center; margin-top: 14px; font-size: 0.85rem; color: var(--muted); }
-
-  .history { margin-top: 22px; }
-  .history h2 { font-size: 0.9rem; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
-  .history h2 button { font-size: 0.78rem; padding: 4px 10px; font-weight: 600; }
-  .history ul { list-style: none; margin: 8px 0 0; padding: 0; }
-  .history li {
-    display: flex; align-items: center; gap: 10px;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
     padding: 10px 12px;
-    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--subtle);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    word-break: break-all;
   }
-  .history .info { flex: 1; min-width: 0; }
-  .history .info .t { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .history .info .d { font-size: 0.75rem; color: var(--muted); }
-  .history li button, .history li a.mini {
-    font-size: 0.78rem; padding: 7px 10px; font-weight: 600;
-    text-decoration: none; color: var(--text);
-    background: var(--mono-bg); border: 1px solid var(--line); border-radius: 10px;
+  .demo-swap { display: flex; justify-content: center; margin: 10px 0; }
+  .demo-swap span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--muted);
   }
-  footer { text-align: center; color: var(--muted); font-size: 0.78rem; margin-top: 26px; line-height: 1.6; }
-  footer a { color: inherit; }
+  .demo figcaption { margin-top: 14px; text-align: center; font-size: 13px; color: var(--muted); }
+
+  /* ---------- Sections ---------- */
+  .section { margin-top: 76px; }
+  .section h2 { font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+  .section-lead { margin-top: 8px; max-width: 56ch; font-size: 15px; color: var(--muted); }
+
+  /* ---------- Comment ça marche ---------- */
+  .grid3 { display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: 24px; }
+  .how-card { padding: 18px; }
+  .how-num { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .how-card h3 { margin-top: 12px; font-size: 15.5px; font-weight: 600; letter-spacing: -.01em; }
+  .how-card p { margin-top: 6px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+
+  /* ---------- Raccourci ---------- */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 20px; }
+  .flow-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .flow > svg { color: var(--muted); flex: none; }
+  .install { margin-top: 26px; }
+  .install-note { font-size: 14px; color: var(--muted); }
+  .install-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  .install-alt { font-size: 14px; color: var(--muted); }
+  .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 16px 0 0; padding: 0; }
+  .step { display: flex; gap: 14px; padding: 16px; }
+  .step-num {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--subtle);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-title { padding-top: 5px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .step-body p { margin-top: 4px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+  .ui {
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--subtle);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .urlcopy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 8px 8px 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--subtle);
+  }
+  .urlcopy code {
+    flex: 1 1 220px;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    word-break: break-all;
+    color: var(--text);
+  }
+  .var {
+    display: inline-block;
+    padding: 1px 9px;
+    margin-left: 2px;
+    border: 1px solid var(--var-border);
+    border-radius: 999px;
+    background: var(--var-bg);
+    color: var(--var-fg);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    vertical-align: 1px;
+  }
+  .btn-copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .btn-copy:hover { border-color: var(--muted); }
+  .tip { margin-top: 20px; padding: 16px; }
+  .tip-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .tip p { margin-top: 8px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+  .tip a { color: var(--text); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin-top: 20px; }
+  .faq details { border-bottom: 1px solid var(--border); }
+  .faq details:first-child { border-top: 1px solid var(--border); }
+  .faq summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 2px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    cursor: pointer;
+    list-style: none;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary svg { flex: none; color: var(--muted); transition: transform .15s ease; }
+  .faq details[open] summary svg { transform: rotate(90deg); }
+  .faq details p {
+    max-width: 62ch;
+    padding: 0 2px 16px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .faq details p a { color: var(--text); }
+
+  /* ---------- Footer ---------- */
+  footer { margin-top: 84px; border-top: 1px solid var(--border); }
+  .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 24px;
+    padding: 26px 0 56px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a { color: var(--muted); text-decoration: none; transition: color .15s ease; }
+  .footer-links a:hover { color: var(--text); text-decoration: underline; }
+
+  @media (min-width: 640px) {
+    .hero { padding-top: 100px; }
+    .grid3 { grid-template-columns: repeat(3, 1fr); }
+    .section { margin-top: 96px; }
+    footer { margin-top: 104px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>🎶 Passerelle musicale</h1>
-    <p class="sub"><b class="apple">Apple Music</b> ↔ <b class="deezer">Deezer</b> — colle un lien, récupère l'autre.</p>
+
+<main class="container">
+
+  <!-- ============ Hero ============ -->
+  <header class="hero">
+    <p class="eyebrow">
+      <span>Apple&nbsp;Music</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8l-4 4 4 4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+      <span>Deezer</span>
+    </p>
+    <h1>La même musique,<br>sur tes deux plateformes.</h1>
+    <p class="lead">Colle un lien Apple&nbsp;Music, récupère le lien Deezer exact — et inversement. Gratuit, sans compte, directement dans le navigateur.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="./app/">
+        Ouvrir le convertisseur
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#raccourci">Installer le raccourci iPhone</a>
+    </div>
+
+    <!-- ============ Démo ============ -->
+    <figure class="demo card">
+      <div>
+        <div class="demo-label"><span class="dot dot-apple"></span>Apple Music</div>
+        <code class="demo-url">https://music.apple.com/fr/album/ghost/1634875613?i=1634875617</code>
+      </div>
+      <div class="demo-swap" aria-hidden="true">
+        <span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l4-4 4 4"/><path d="M8 17l4 4 4-4"/><path d="M12 3v18"/></svg>
+        </span>
+      </div>
+      <div>
+        <div class="demo-label"><span class="dot dot-deezer"></span>Deezer</div>
+        <code class="demo-url">https://www.deezer.com/track/2096231467</code>
+      </div>
+      <figcaption>Ghost — Ava&nbsp;Max, le même titre retrouvé de l'autre côté.</figcaption>
+    </figure>
   </header>
 
-  <div class="card">
-    <label for="link">Ton lien (titre ou album)</label>
-    <div class="row">
-      <input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false"
-             placeholder="https://music.apple.com/… ou https://www.deezer.com/…">
-      <button id="paste" type="button" title="Coller depuis le presse-papiers">📋</button>
+  <!-- ============ Comment ça marche ============ -->
+  <section class="section" id="fonctionnement">
+    <h2>Comment ça marche</h2>
+    <p class="section-lead">Aucune configuration&nbsp;: la page interroge directement les catalogues publics des deux plateformes.</p>
+    <div class="grid3">
+      <div class="card how-card">
+        <span class="how-num">01</span>
+        <h3>Colle un lien</h3>
+        <p>Un titre ou un album, copié depuis Apple&nbsp;Music ou Deezer. La direction de conversion est détectée automatiquement.</p>
+      </div>
+      <div class="card how-card">
+        <span class="how-num">02</span>
+        <h3>Correspondance vérifiée</h3>
+        <p>Titre, artiste et durée sont comparés — code-barres UPC pour les albums. Un statut de fiabilité s'affiche avec chaque résultat.</p>
+      </div>
+      <div class="card how-card">
+        <span class="how-num">03</span>
+        <h3>Copie ou partage</h3>
+        <p>Le lien obtenu s'ouvre sur l'autre plateforme, se copie ou se partage en un geste.</p>
+      </div>
     </div>
-    <button id="go" class="go" type="button">Convertir</button>
+  </section>
 
-    <div id="status" class="status"></div>
+  <!-- ============ Raccourci iPhone ============ -->
+  <section class="section" id="raccourci">
+    <h2>Le raccourci iPhone</h2>
+    <p class="section-lead">Depuis Apple&nbsp;Music, deux taps suffisent&nbsp;: le lien converti s'ouvre, prêt à être partagé.</p>
 
-    <div id="result" class="result">
-      <span id="direction" class="badge"></span>
-      <div class="meta">
-        <img id="artwork" alt="" src="" referrerpolicy="no-referrer">
-        <div>
-          <div class="t" id="rTitle"></div>
-          <div class="a" id="rArtist"></div>
-        </div>
+    <div class="flow" role="img" aria-label="Partager, puis Envoyer sur Deezer : le lien Deezer s'ouvre">
+      <span class="flow-chip">Partager</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="flow-chip">Envoyer sur Deezer</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="flow-chip"><span class="dot dot-deezer"></span>Le lien Deezer s'ouvre</span>
+    </div>
+
+    <div class="install">
+      <div class="install-cta">
+        <a class="btn btn-primary" href="raccourcis/Partager%20sur%20Deezer.shortcut" download="Partager sur Deezer.shortcut">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Partager sur Deezer<span class="dot dot-deezer"></span>
+        </a>
+        <a class="btn btn-primary" href="raccourcis/Partager%20sur%20YouTube.shortcut" download="Partager sur YouTube.shortcut">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+          Partager sur YouTube<span class="dot dot-youtube"></span>
+        </a>
       </div>
-      <span id="confidence" class="chip"></span>
-      <div id="confExplain" class="explain">
-        <p><b>Comment la correspondance est trouvée ?</b> Il n'existe pas
-        d'identifiant commun public entre Apple Music et Deezer pour les titres.
-        La page compare donc le <b>titre</b> (accents, majuscules et suffixes
-        normalisés), l'<b>artiste</b> et la <b>durée</b> (le nombre de pistes
-        pour les albums). Selon ce qui concorde :</p>
-        <div class="lvl" data-conf="exacte">
-          <span class="chip exacte">✓ exacte</span>
-          <span>Titre, artiste et durée (à ±2 s) concordent parfaitement.
-          Pour un album Deezer → Apple Music, c'est même le code-barres
-          officiel de l'album (UPC) qui fait la correspondance : zéro
-          ambiguïté. <span class="now">← ce résultat</span></span>
+      <p class="install-note">Ouvre ces fichiers sur ton iPhone&nbsp;: le raccourci s'importe dans l'app Raccourcis
+      (fichiers signés, créés depuis un iPhone). Si iOS refuse l'import, le tutoriel ci-dessous
+      construit exactement le même raccourci en 2&nbsp;minutes&nbsp;:</p>
+    </div>
+
+    <ol class="steps">
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">1</span>
+        <div class="step-body">
+          <h3 class="step-title">Nouveau raccourci</h3>
+          <p>Ouvre l'app Raccourcis, onglet «&nbsp;Raccourcis&nbsp;», puis touche «&nbsp;+&nbsp;».</p>
         </div>
-        <div class="lvl" data-conf="probable">
-          <span class="chip probable">≈ probable</span>
-          <span>L'artiste et la durée collent, mais le titre n'est pas écrit
-          exactement pareil des deux côtés : un « (feat. …) », « Remix » ou
-          « Radio Edit » affiché sur une plateforme et pas sur l'autre.
-          C'est presque toujours la bonne musique, simplement nommée
-          différemment. <span class="now">← ce résultat</span></span>
+      </li>
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">2</span>
+        <div class="step-body">
+          <h3 class="step-title">Feuille de partage</h3>
+          <p>Touche ⓘ et active «&nbsp;Afficher dans la feuille de partage&nbsp;». Dans «&nbsp;Recevoir&nbsp;», limite les types à URL et Texte.</p>
         </div>
-        <div class="lvl" data-conf="incertaine">
-          <span class="chip incertaine">? à vérifier</span>
-          <span>La meilleure correspondance trouvée reste éloignée : titre
-          partiel, durée qui diverge ou artiste légèrement différent
-          (reprises, karaoké…). Écoute avant d'envoyer, ou regarde
-          « Autres candidats » juste en dessous. <span class="now">← ce résultat</span></span>
+      </li>
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">3</span>
+        <div class="step-body">
+          <h3 class="step-title">Encoder le lien reçu</h3>
+          <p>Ajoute l'action <span class="ui">Encoder l'URL</span>. Elle s'applique directement à l'entrée du raccourci.</p>
         </div>
-        <p class="last">Et si rien d'assez proche n'est trouvé, la page n'invente
-        rien : elle affiche une erreur avec un lien de recherche manuelle.</p>
+      </li>
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">4</span>
+        <div class="step-body">
+          <h3 class="step-title">L'adresse du convertisseur</h3>
+          <p>Ajoute l'action <span class="ui">URL</span> et saisis l'adresse ci-dessous, puis insère juste derrière la variable «&nbsp;Texte encodé&nbsp;».</p>
+          <div class="urlcopy">
+            <code>https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/?url=<span class="var">Texte&nbsp;encodé</span></code>
+            <button type="button" class="btn-copy" id="copyUrl">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier
+            </button>
+          </div>
+        </div>
+      </li>
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">5</span>
+        <div class="step-body">
+          <h3 class="step-title">Ouvrir le résultat</h3>
+          <p>Ajoute l'action <span class="ui">Ouvrir les URL</span>&nbsp;: elle ouvrira la page de conversion avec le lien reçu.</p>
+        </div>
+      </li>
+      <li class="card step">
+        <span class="step-num" aria-hidden="true">6</span>
+        <div class="step-body">
+          <h3 class="step-title">Envoyer sur Deezer</h3>
+          <p>Nomme le raccourci «&nbsp;Envoyer sur Deezer&nbsp;» — c'est le nom qui apparaîtra dans la feuille de partage d'Apple&nbsp;Music.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="card tip">
+      <span class="tip-label">Variante — YouTube</span>
+      <p>Un proche écoute sur YouTube&nbsp;? Même raccourci, seule l'adresse de l'étape&nbsp;4 change&nbsp;:
+      le paramètre <span class="ui">to=youtube</span> force la destination
+      (<span class="ui">to=ytmusic</span> pour YouTube&nbsp;Music). Nomme-le «&nbsp;Envoyer sur YouTube&nbsp;».</p>
+      <div class="urlcopy">
+        <code>https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/?to=youtube&amp;url=<span class="var">Texte&nbsp;encodé</span></code>
+        <button type="button" class="btn-copy" id="copyUrlYt">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copier
+        </button>
       </div>
-      <div class="url" id="rUrl"></div>
-      <div class="actions">
-        <a id="open" class="open" target="_blank" rel="noopener"></a>
-        <div class="pair">
-          <button id="copy" type="button">📄 Copier le lien</button>
-          <button id="share" type="button">📤 Partager…</button>
-        </div>
-      </div>
-      <details id="altBox" hidden>
-        <summary>Pas la bonne version ? Autres candidats</summary>
-        <ul id="altList"></ul>
+      <p>Le résultat est un lien de recherche YouTube «&nbsp;artiste titre&nbsp;» — le premier résultat est en général le bon.</p>
+    </div>
+
+    <div class="card tip">
+      <span class="tip-label">Astuce</span>
+      <p>Ouvre <a href="./app/">le convertisseur</a> dans Safari, puis Partager → «&nbsp;Sur l'écran d'accueil&nbsp;»&nbsp;: tu l'obtiens en icône d'app. Pratique dans le sens Deezer → Apple&nbsp;Music&nbsp;: copie le lien reçu, ouvre l'app et touche «&nbsp;Coller&nbsp;».</p>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section" id="faq">
+    <h2>Questions fréquentes</h2>
+    <div class="faq">
+      <details>
+        <summary>
+          Ça marche aussi de Deezer vers Apple&nbsp;Music&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Oui. Même page et même raccourci&nbsp;: la direction est détectée automatiquement à partir du lien collé, dans un sens comme dans l'autre.</p>
       </details>
-      <a id="songlink" class="songlink" target="_blank" rel="noopener">Voir sur toutes les plateformes (song.link) ↗</a>
+      <details>
+        <summary>
+          C'est fiable&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Chaque résultat est accompagné d'un statut. «&nbsp;Exacte&nbsp;»&nbsp;: titre, artiste et durée concordent parfaitement — et pour les albums, c'est le code-barres officiel (UPC) qui fait la correspondance. «&nbsp;Probable&nbsp;»&nbsp;: même musique, nommée un peu différemment d'une plateforme à l'autre. «&nbsp;À vérifier&nbsp;»&nbsp;: la meilleure piste trouvée reste éloignée, écoute avant de partager.</p>
+      </details>
+      <details>
+        <summary>
+          C'est gratuit&nbsp;? Et mes données&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Gratuit, sans compte. Tout se passe dans ton navigateur, via les API publiques d'iTunes et de Deezer&nbsp;: aucune donnée n'est collectée. Le code est <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">ouvert sur GitHub</a>.</p>
+      </details>
+      <details>
+        <summary>
+          Et les liens courts deezer.page.link&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Ouvre d'abord le lien court dans ton navigateur, puis copie l'adresse complète (www.deezer.com/…) et colle-la dans le convertisseur.</p>
+      </details>
     </div>
+  </section>
+
+</main>
+
+<!-- ============ Footer ============ -->
+<footer>
+  <div class="container footer-inner">
+    <nav class="footer-links" aria-label="Liens du site">
+      <a href="./app/">Convertisseur</a>
+      <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">Code source</a>
+    </nav>
+    <p>Fait maison — zéro compte, zéro tracking.</p>
   </div>
+</footer>
 
-  <div class="history" id="historyBox" hidden>
-    <h2>Conversions récentes <button id="clearHistory" type="button">Effacer</button></h2>
-    <ul id="historyList"></ul>
-  </div>
-
-  <footer>
-    POC 100 % navigateur — APIs publiques iTunes &amp; Deezer, aucun compte, aucune clé.<br>
-    Astuce iPhone : ajoute le raccourci « Partager sur Deezer » (voir le README du projet).
-  </footer>
-</div>
-
-<script src="converter.js"></script>
 <script>
 (function () {
   'use strict';
-  var MC = window.MusicConverter;
-  var $ = function (id) { return document.getElementById(id); };
-  var HISTORY_KEY = 'mlc:history';
 
-  /* ---------- Transport réseau : fetch pour iTunes, JSONP pour Deezer ---------- */
-  var jsonpSeq = 0;
-  function jsonpFetch(url) {
-    return new Promise(function (resolve, reject) {
-      var cb = '__mlcJsonp' + (jsonpSeq++);
-      var script = document.createElement('script');
-      var timer = setTimeout(function () { cleanup(); reject(new Error('Deezer ne répond pas (timeout).')); }, 15000);
-      function cleanup() {
-        clearTimeout(timer);
-        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-        if (script.parentNode) script.parentNode.removeChild(script);
-      }
-      window[cb] = function (data) { cleanup(); resolve(data); };
-      script.onerror = function () { cleanup(); reject(new Error('Erreur réseau vers Deezer.')); };
-      script.src = url + (url.indexOf('?') !== -1 ? '&' : '?') + 'output=jsonp&callback=' + cb;
-      document.head.appendChild(script);
-    });
-  }
-  function fetchJson(url, opts) {
-    if (opts && opts.jsonp) return jsonpFetch(url);
-    return fetch(url).then(function (res) {
-      if (!res.ok) throw new Error('Erreur réseau (HTTP ' + res.status + ').');
-      return res.json();
-    });
-  }
 
-  /* ---------- Presse-papiers / partage ---------- */
+  /* ---------- Copie de l'adresse du convertisseur (étape 4) ---------- */
+  var APP_URL = 'https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/?url=';
+  var YT_URL = 'https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/?to=youtube&url=';
+
   function copyText(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-    return new Promise(function (resolve, reject) {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); resolve(); } catch (e) { reject(e); }
-      document.body.removeChild(ta);
-    });
-  }
-  function flash(btn, label) {
-    var old = btn.textContent;
-    btn.textContent = label;
-    setTimeout(function () { btn.textContent = old; }, 1400);
-  }
-
-  /* ---------- Historique ---------- */
-  function loadHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
-  }
-  function saveHistory(list) {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) {}
-  }
-  function pushHistory(entry) {
-    var list = loadHistory().filter(function (x) { return x.url !== entry.url; });
-    list.unshift(entry);
-    saveHistory(list);
-    renderHistory();
-  }
-  function renderHistory() {
-    var list = loadHistory();
-    $('historyBox').hidden = list.length === 0;
-    var ul = $('historyList');
-    ul.innerHTML = '';
-    list.forEach(function (x) {
-      var li = document.createElement('li');
-      var info = document.createElement('div');
-      info.className = 'info';
-      var t = document.createElement('div');
-      t.className = 't';
-      t.textContent = x.title + ' — ' + x.artist;
-      var d = document.createElement('div');
-      d.className = 'd';
-      d.textContent = x.dir;
-      info.appendChild(t); info.appendChild(d);
-      var copyBtn = document.createElement('button');
-      copyBtn.textContent = 'Copier';
-      copyBtn.onclick = function () {
-        copyText(x.url).then(function () { flash(copyBtn, 'Copié ✓'); });
-      };
-      var openA = document.createElement('a');
-      openA.className = 'mini';
-      openA.textContent = 'Ouvrir';
-      openA.href = x.url;
-      openA.target = '_blank';
-      openA.rel = 'noopener';
-      li.appendChild(info); li.appendChild(copyBtn); li.appendChild(openA);
-      ul.appendChild(li);
-    });
-  }
-  $('clearHistory').onclick = function () { saveHistory([]); renderHistory(); };
-
-  /* ---------- Affichage ---------- */
-  function setStatus(kind, html) {
-    var el = $('status');
-    el.className = 'status' + (kind ? ' ' + kind : '');
-    el.innerHTML = html || '';
-    el.style.display = html ? (kind === 'loading' ? 'flex' : 'block') : 'none';
-  }
-  function showResult(res) {
-    var from = MC.platformLabel(res.source.platform);
-    var to = MC.platformLabel(res.target.platform);
-    var kind = res.source.kind === 'album' ? 'album' : 'titre';
-    $('direction').textContent = from + ' → ' + to + ' · ' + kind;
-    $('artwork').src = res.target.artwork || res.source.artwork || '';
-    $('rTitle').textContent = res.target.title || res.source.title;
-    $('rArtist').textContent = (res.target.artist || res.source.artist || '') + (res.source.album && res.source.kind === 'track' ? ' · ' + res.source.album : '');
-    var conf = res.target.confidence;
-    var chip = $('confidence');
-    chip.className = 'chip clickable ' + conf;
-    chip.textContent = (conf === 'exacte' ? '✓ Correspondance exacte' + (res.target.via ? ' (code ' + res.target.via + ')' : '')
-      : conf === 'probable' ? '≈ Correspondance probable'
-      : '? À vérifier') + ' ⓘ';
-    chip.title = 'Toucher pour comprendre ce statut';
-    chip.setAttribute('role', 'button');
-    chip.setAttribute('tabindex', '0');
-    chip.setAttribute('aria-expanded', 'false');
-    var panel = $('confExplain');
-    panel.classList.remove('open');
-    Array.prototype.forEach.call(panel.querySelectorAll('.lvl'), function (row) {
-      row.classList.toggle('current', row.getAttribute('data-conf') === conf);
-    });
-    $('rUrl').textContent = res.target.url;
-    var open = $('open');
-    open.href = res.target.url;
-    open.textContent = 'Ouvrir sur ' + to;
-    open.className = 'open ' + res.target.platform;
-    $('songlink').href = 'https://song.link/' + encodeURIComponent(res.source.url);
-
-    var alts = res.alternatives || [];
-    $('altBox').hidden = alts.length === 0;
-    var ul = $('altList');
-    ul.innerHTML = '';
-    alts.forEach(function (a) {
-      var li = document.createElement('li');
-      var link = document.createElement('a');
-      link.href = a.url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.textContent = a.title + ' — ' + (a.album || a.artist || '');
-      li.appendChild(link);
-      ul.appendChild(li);
-    });
-
-    $('copy').onclick = function () {
-      copyText(res.target.url).then(function () { flash($('copy'), 'Copié ✓'); });
-    };
-    var shareBtn = $('share');
-    if (navigator.share) {
-      shareBtn.style.display = '';
-      shareBtn.onclick = function () {
-        navigator.share({
-          title: (res.target.title || '') + ' — ' + (res.target.artist || ''),
-          url: res.target.url
-        }).catch(function () {});
-      };
-    } else {
-      shareBtn.style.display = 'none';
-    }
-
-    $('result').style.display = 'block';
-    pushHistory({
-      title: res.target.title || res.source.title,
-      artist: res.target.artist || res.source.artist || '',
-      url: res.target.url,
-      dir: from + ' → ' + to,
-      ts: Date.now()
-    });
-  }
-
-  /* ---------- Conversion ---------- */
-  var busy = false;
-  function run() {
-    if (busy) return;
-    var value = $('link').value.trim();
-    if (!value) { setStatus('error', 'Colle d’abord un lien Apple Music ou Deezer 🙂'); return; }
-    busy = true;
-    $('result').style.display = 'none';
-    setStatus('loading', '<span class="spin"></span> Recherche de la correspondance…');
-    MC.convert(value, { fetchJson: fetchJson })
-      .then(function (res) {
-        setStatus('', '');
-        showResult(res);
-      })
-      .catch(function (err) {
-        var html = err.message;
-        if (err.searchUrl) {
-          html += ' <a href="' + err.searchUrl + '" target="_blank" rel="noopener">Chercher manuellement ↗</a>';
-        }
-        setStatus('error', html);
-      })
-      .then(function () { busy = false; });
-  }
-
-  function toggleConfExplain() {
-    var open = $('confExplain').classList.toggle('open');
-    $('confidence').setAttribute('aria-expanded', open ? 'true' : 'false');
-  }
-  $('confidence').addEventListener('click', toggleConfExplain);
-  $('confidence').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleConfExplain(); }
-  });
-
-  $('go').onclick = run;
-  $('link').addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
-  $('link').addEventListener('paste', function () { setTimeout(run, 60); });
-  $('paste').onclick = function () {
-    if (navigator.clipboard && navigator.clipboard.readText) {
-      navigator.clipboard.readText().then(function (text) {
-        if (text) { $('link').value = text.trim(); run(); }
-      }).catch(function () {
-        $('link').focus();
-        setStatus('error', 'Impossible de lire le presse-papiers — colle le lien à la main.');
+    function legacy() {
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); resolve(); } catch (e) { reject(e); }
+        document.body.removeChild(ta);
       });
-    } else {
-      $('link').focus();
     }
-  };
-
-  /* ---------- Paramètre ?url= (raccourci iOS / partage) ---------- */
-  var qs = window.location.search.slice(1);
-  var m = qs.match(/(?:^|&)(?:url|q|link)=(.+)$/);
-  if (m) {
-    var raw = m[1];
-    try { raw = decodeURIComponent(raw); } catch (e) {}
-    $('link').value = raw;
-    run();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(legacy);
+    }
+    return legacy();
   }
 
-  renderHistory();
+  [['copyUrl', APP_URL], ['copyUrlYt', YT_URL]].forEach(function (pair) {
+    var btn = document.getElementById(pair[0]);
+    if (!btn) return;
+    var initial = btn.innerHTML;
+    var timer = null;
+    btn.addEventListener('click', function () {
+      copyText(pair[1]).then(function () {
+        btn.innerHTML =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 7"/></svg>Copié';
+        clearTimeout(timer);
+        timer = setTimeout(function () { btn.innerHTML = initial; }, 1500);
+      }).catch(function () {});
+    });
+  });
 })();
 </script>
 </body>
