@@ -9,9 +9,33 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
   location.replace('app/' + location.search);
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Passerelle musicale",
+  "url": "https://ossamabenjemaa.github.io/shareApplemusicToDeezer/",
+  "description": "Convertisseur de liens Apple Music vers Deezer et inversement, avec liens de recherche YouTube.",
+  "applicationCategory": "UtilityApplication",
+  "operatingSystem": "Any",
+  "inLanguage": "fr",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Passerelle musicale — Apple Music ↔ Deezer</title>
+<title>Passerelle musicale — convertisseur de liens Apple Music ↔ Deezer</title>
 <meta name="description" content="Colle un lien Apple Music, récupère le lien Deezer exact — et inversement. Gratuit, sans compte, directement dans le navigateur. Raccourci iPhone pour partager en deux taps.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; object-src 'none'; form-action 'none'">
+<link rel="canonical" href="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/">
+<meta property="og:title" content="Passerelle musicale — convertisseur Apple Music ↔ Deezer">
+<meta property="og:description" content="Colle un lien Apple Music, récupère le lien Deezer exact — et inversement. Gratuit, sans compte. Raccourcis iPhone pour partager en deux taps.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Passerelle musicale">
+<meta property="og:url" content="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/">
+<meta property="og:image" content="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0c0e">
@@ -54,6 +78,19 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
 
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation: none !important; transition: none !important; }
+  }
+  .skip {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--surface); color: var(--text);
+    padding: 10px 14px; border: 1px solid var(--border); border-radius: 0 0 10px 0;
+  }
+  .skip:focus { left: 0; z-index: 10; }
+  .tryit { margin-top: 12px; text-align: center; font-size: 13px; }
+  .tryit a { color: var(--muted); }
+  .tryit a:hover { color: var(--text); }
   body {
     margin: 0;
     background: var(--bg);
@@ -145,7 +182,7 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .dot-apple { background: var(--apple); }
   .dot-deezer { background: var(--deezer); }
-  .dot-youtube { background: #ff0000; }
+  .dot-youtube { background: #e51b1b; }
   .demo-url {
     display: block;
     padding: 10px 12px;
@@ -198,9 +235,8 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
   }
   .flow > svg { color: var(--muted); flex: none; }
   .install { margin-top: 26px; }
-  .install-note { font-size: 14px; color: var(--muted); }
+  .install-note { margin-top: 12px; font-size: 14px; color: var(--muted); }
   .install-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-  .install-alt { font-size: 14px; color: var(--muted); }
   .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 16px 0 0; padding: 0; }
   .step { display: flex; gap: 14px; padding: 16px; }
   .step-num {
@@ -324,6 +360,8 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
 
   /* ---------- Footer ---------- */
   footer { margin-top: 84px; border-top: 1px solid var(--border); }
+  .legal { margin-top: 10px; font-size: 12px; }
+  .legal a { color: inherit; }
   .footer-inner {
     display: flex;
     flex-wrap: wrap;
@@ -347,6 +385,7 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
 </style>
 </head>
 <body>
+<a class="skip" href="#fonctionnement">Aller au contenu</a>
 
 <main class="container">
 
@@ -383,12 +422,13 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
         <code class="demo-url">https://www.deezer.com/track/2096231467</code>
       </div>
       <figcaption>Ghost — Ava&nbsp;Max, le même titre retrouvé de l'autre côté.</figcaption>
+      <p class="tryit"><a href="./app/?url=https%3A%2F%2Fmusic.apple.com%2Ffr%2Falbum%2Fghost%2F1634875613%3Fi%3D1634875617">Essayer en vrai avec cet exemple</a></p>
     </figure>
   </header>
 
   <!-- ============ Comment ça marche ============ -->
   <section class="section" id="fonctionnement">
-    <h2>Comment ça marche</h2>
+    <h2>Convertir un lien Apple Music en lien Deezer (et l'inverse)</h2>
     <p class="section-lead">Aucune configuration&nbsp;: la page interroge directement les catalogues publics des deux plateformes.</p>
     <div class="grid3">
       <div class="card how-card">
@@ -412,14 +452,14 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
   <!-- ============ Raccourci iPhone ============ -->
   <section class="section" id="raccourci">
     <h2>Le raccourci iPhone</h2>
-    <p class="section-lead">Depuis Apple&nbsp;Music, deux taps suffisent&nbsp;: le lien converti s'ouvre, prêt à être partagé.</p>
+    <p class="section-lead">Depuis Apple&nbsp;Music, deux taps suffisent&nbsp;: le lien converti est prêt — un dernier tap sur «&nbsp;Partager…&nbsp;» pour l'envoyer.</p>
 
-    <div class="flow" role="img" aria-label="Partager, puis Envoyer sur Deezer : le lien Deezer s'ouvre">
+    <div class="flow" role="img" aria-label="Partager, puis Partager sur Deezer : le lien Deezer est prêt à envoyer">
       <span class="flow-chip">Partager</span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      <span class="flow-chip">Envoyer sur Deezer</span>
+      <span class="flow-chip">Partager sur Deezer</span>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-      <span class="flow-chip"><span class="dot dot-deezer"></span>Le lien Deezer s'ouvre</span>
+      <span class="flow-chip"><span class="dot dot-deezer"></span>Le lien Deezer est prêt à envoyer</span>
     </div>
 
     <div class="install">
@@ -484,8 +524,8 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
       <li class="card step">
         <span class="step-num" aria-hidden="true">6</span>
         <div class="step-body">
-          <h3 class="step-title">Envoyer sur Deezer</h3>
-          <p>Nomme le raccourci «&nbsp;Envoyer sur Deezer&nbsp;» — c'est le nom qui apparaîtra dans la feuille de partage d'Apple&nbsp;Music.</p>
+          <h3 class="step-title">Partager sur Deezer</h3>
+          <p>Nomme le raccourci «&nbsp;Partager sur Deezer&nbsp;» — le même nom que le fichier prêt à installer, celui qui apparaîtra dans la feuille de partage d'Apple&nbsp;Music.</p>
         </div>
       </li>
     </ol>
@@ -494,7 +534,7 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
       <span class="tip-label">Variante — YouTube</span>
       <p>Un proche écoute sur YouTube&nbsp;? Même raccourci, seule l'adresse de l'étape&nbsp;4 change&nbsp;:
       le paramètre <span class="ui">to=youtube</span> force la destination
-      (<span class="ui">to=ytmusic</span> pour YouTube&nbsp;Music). Nomme-le «&nbsp;Envoyer sur YouTube&nbsp;».</p>
+      (<span class="ui">to=ytmusic</span> pour YouTube&nbsp;Music). Nomme-le «&nbsp;Partager sur YouTube&nbsp;».</p>
       <div class="urlcopy">
         <code>https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/?to=youtube&amp;url=<span class="var">Texte&nbsp;encodé</span></code>
         <button type="button" class="btn-copy" id="copyUrlYt">
@@ -534,14 +574,35 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
           C'est gratuit&nbsp;? Et mes données&nbsp;?
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
-        <p>Gratuit, sans compte. Tout se passe dans ton navigateur, via les API publiques d'iTunes et de Deezer&nbsp;: aucune donnée n'est collectée. Le code est <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">ouvert sur GitHub</a>.</p>
+        <p>Gratuit, sans compte. Tout se passe dans ton navigateur&nbsp;: les liens convertis sont envoyés aux API publiques d'Apple et de Deezer (qui voient ton adresse IP, comme quand tu utilises leurs apps), rien d'autre ne circule. L'historique reste uniquement sur ton appareil et s'efface d'un bouton. Le code est <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">ouvert sur GitHub</a> (licence MIT).</p>
       </details>
       <details>
         <summary>
           Et les liens courts deezer.page.link&nbsp;?
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
         </summary>
-        <p>Ouvre d'abord le lien court dans ton navigateur, puis copie l'adresse complète (www.deezer.com/…) et colle-la dans le convertisseur.</p>
+        <p>Les liens deezer.page.link ne fonctionnent plus (Google a arrêté ce service de liens courts)&nbsp;: demande plutôt le lien complet www.deezer.com/… Pour un lien link.deezer.com, ouvre-le d'abord, puis copie l'adresse complète et colle-la dans le convertisseur.</p>
+      </details>
+      <details>
+        <summary>
+          Comment envoyer un titre Apple&nbsp;Music à quelqu'un qui est sur Deezer&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Dans Apple&nbsp;Music&nbsp;: Partager → «&nbsp;Partager sur Deezer&nbsp;» (le raccourci de cette page) → le lien Deezer est prêt, tape «&nbsp;Partager…&nbsp;» et choisis la conversation. Sans raccourci&nbsp;: copie le lien, colle-le dans <a href="./app/">le convertisseur</a>, copie le résultat.</p>
+      </details>
+      <details>
+        <summary>
+          Pourquoi pas song.link&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>song.link ouvre une page intermédiaire où ton destinataire doit encore choisir sa plateforme. Ici, il reçoit directement le bon lien natif, qui s'ouvre dans son app — sans page de passage ni tracking. Et song.link reste proposé sous chaque résultat pour toutes les autres plateformes.</p>
+      </details>
+      <details>
+        <summary>
+          Et les playlists&nbsp;?
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </summary>
+        <p>Hors périmètre&nbsp;: ici on convertit des titres et des albums. Pour transférer une playlist entière d'une plateforme à l'autre, des services dédiés comme TuneMyMusic ou Soundiiz font ça très bien.</p>
       </details>
     </div>
   </section>
@@ -555,7 +616,8 @@ if (/(?:^|[?&])(?:url|q|link)=/.test(location.search)) {
       <a href="./app/">Convertisseur</a>
       <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">Code source</a>
     </nav>
-    <p>Fait maison — zéro compte, zéro tracking.</p>
+    <p>Fait maison — zéro compte, zéro tracking. Né pour envoyer des chansons à deux personnes&nbsp;: l'une écoute sur Deezer, l'autre sur YouTube.</p>
+    <p class="legal">Site personnel et non commercial — hébergement&nbsp;: GitHub, Inc. (GitHub Pages), 88 Colin P. Kelly Jr St, San Francisco, CA 94107, USA — contact via <a href="https://github.com/ossamabenjemaa/shareApplemusicToDeezer" target="_blank" rel="noopener">le dépôt GitHub</a>. Licence MIT.</p>
   </div>
 </footer>
 

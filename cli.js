@@ -78,7 +78,12 @@ async function main() {
   let parsed = parseMusicLink(input);
   if (parsed.kind === 'short') {
     const full = await resolveShortLink(parsed.url);
-    parsed = parseMusicLink(full);
+    const reparsed = parseMusicLink(full);
+    if (reparsed.kind === 'short') {
+      console.error('❌ Ce lien court ne redirige plus (deezer.page.link est hors service) — demande le lien complet www.deezer.com/…');
+      process.exit(1);
+    }
+    parsed = reparsed;
   }
 
   const result = await convert(parsed, { fetchJson, to: toArg });

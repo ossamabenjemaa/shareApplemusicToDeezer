@@ -1,0 +1,23 @@
+name: Canary — santé des APIs
+
+# Les APIs iTunes et Deezer sont publiques mais sans contrat : ce canary
+# exécute chaque semaine de vraies conversions et échoue si l'une casse
+# (GitHub envoie alors un e-mail au propriétaire du dépôt).
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests hors-ligne
+        run: node --test test.js
+      - name: Conversions réelles (Apple→Deezer, Deezer→Apple, album UPC)
+        run: |
+          node cli.js "https://music.apple.com/fr/album/ghost/1634875613?i=1634875617" | grep -q "deezer.com/track/2096231467"
+          node cli.js "https://www.deezer.com/fr/track/2096231467" | grep -q "music.apple.com"
+          node cli.js "https://www.deezer.com/fr/album/393293037" | grep -q "exacte"

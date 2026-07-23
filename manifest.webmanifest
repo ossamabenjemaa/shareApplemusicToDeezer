@@ -1,0 +1,15 @@
+{
+  "name": "Passerelle musicale",
+  "short_name": "Passerelle",
+  "description": "Convertisseur de liens Apple Music ↔ Deezer, avec liens de recherche YouTube.",
+  "lang": "fr",
+  "start_url": "./app/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#111113",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

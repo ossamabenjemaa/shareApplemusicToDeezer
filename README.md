@@ -1,4 +1,6 @@
-# 🎶 shareApplemusicToDeezer — Apple Music ↔ Deezer (+ YouTube)
+# 🎶 Passerelle musicale — convertisseur de liens Apple Music ↔ Deezer (+ YouTube)
+
+![Le convertisseur en action](docs/capture-app.png)
 
 Convertis un lien **Apple Music** en lien **Deezer** (et inversement) en collant simplement le lien, ou génère un lien **YouTube / YouTube Music** pour les proches qui écoutent là-bas.
 
@@ -29,7 +31,7 @@ Deux raccourcis prêts à installer sont hébergés dans [`raccourcis/`](raccour
 
 Usage : dans Apple Music → **Partager** → « Partager sur Deezer » (ou YouTube) → la page s'ouvre avec le lien converti → **Partager…** → iMessage/WhatsApp. Deux taps.
 
-Le tutoriel pas à pas pour reconstruire ces raccourcis soi-même (5 actions dans l'app Raccourcis) est sur la landing, section « Le raccourci iPhone ».
+Le tutoriel pas à pas pour reconstruire ces raccourcis soi-même (6 étapes, 3 actions dans l'app Raccourcis) est sur la landing, section « Le raccourci iPhone ».
 
 Astuce : ouvre le convertisseur dans Safari → Partager → « Sur l'écran d'accueil » pour l'avoir en icône d'app — pratique dans le sens Deezer → Apple Music (copier le lien reçu, ouvrir l'app, bouton coller).
 
@@ -77,7 +79,7 @@ apple-touch-icon.png, .github/workflows/pages.yml
 
 ## ⚠️ Limites connues
 
-- **Liens courts** `deezer.page.link` : à ouvrir d'abord puis copier l'adresse complète `www.deezer.com/…` (le CLI, lui, les résout automatiquement).
+- **Liens courts** : `deezer.page.link` est hors service (arrêt de Firebase Dynamic Links) — demande le lien complet `www.deezer.com/…`. Les liens `link.deezer.com` se résolvent en les ouvrant d'abord (le CLI le fait automatiquement).
 - **Playlists et artistes** : non gérés (titres et albums uniquement).
 - **YouTube** : lien de *recherche*, pas lien direct — YouTube n'expose pas d'API publique sans clé.
 - L'API iTunes limite à ~20 requêtes/minute : largement assez pour un usage perso.
@@ -85,3 +87,17 @@ apple-touch-icon.png, .github/workflows/pages.yml
 ## 💡 Astuce sans rien installer
 
 `https://song.link/<ton-lien>` (Odesli) affiche une page avec le titre sur toutes les plateformes — le convertisseur la référence d'ailleurs sous chaque résultat.
+
+## 🧪 Tests et surveillance
+
+```bash
+node --test test.js   # tests hors-ligne du moteur (aucun réseau)
+```
+
+Le déploiement Pages exécute ces tests avant chaque publication, et un
+workflow « canary » hebdomadaire rejoue de vraies conversions pour alerter
+par e-mail si l'une des APIs publiques change (`.github/workflows/canary.yml`).
+
+## 📄 Licence
+
+MIT — voir [LICENSE](LICENSE). Site personnel et non commercial.

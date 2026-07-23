@@ -33,10 +33,23 @@
 
   function parseMusicLink(input) {
     var text = String(input || '').trim();
-    var m = text.match(/https?:\/\/[^\s"'<>]+/);
+    var m = text.match(/https?:\/\/[^\s"'<>]+/i);
     if (!m) throw new Error('Aucun lien détecté. Colle un lien Apple Music ou Deezer.');
-    var url = new URL(m[0]);
+    var url;
+    try {
+      // rogne la ponctuation collée en fin de lien (« …/123?i=456. », « (…) »)
+      url = new URL(m[0].replace(/[),.!?;:…»\]]+$/, ''));
+    } catch (e) {
+      throw new Error('Aucun lien détecté. Colle un lien Apple Music ou Deezer.');
+    }
     var host = url.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (host === 'open.spotify.com' || host === 'spotify.link' || host.slice(-12) === '.spotify.com') {
+      var errSp = new Error('Les liens Spotify ne sont pas gérés ici — song.link fera la passerelle vers toutes les plateformes.');
+      errSp.searchUrl = 'https://song.link/' + encodeURIComponent(url.href);
+      errSp.linkLabel = 'Ouvrir sur song.link';
+      throw errSp;
+    }
 
     if (SHORT_HOSTS.indexOf(host) !== -1) {
       return { platform: 'deezer', kind: 'short', id: null, url: url.href };
@@ -47,7 +60,7 @@
       var country = 'fr';
       var i = 0;
       if (parts[0] && /^[a-z]{2}$/i.test(parts[0])) { country = parts[0].toLowerCase(); i = 1; }
-      var section = parts[i];
+      var section = (parts[i] || '').toLowerCase();
       var last = parts[parts.length - 1] || '';
       var trackParam = url.searchParams.get('i');
       if (section === 'album') {
@@ -61,6 +74,11 @@
         var songId = (last.match(/^(\d+)$/) || [])[1];
         if (songId) return { platform: 'apple', kind: 'track', id: songId, country: country, url: url.href };
       }
+      if (section === 'playlist' || section === 'artist') {
+        throw new Error(section === 'playlist'
+          ? 'Les playlists sont hors périmètre — pour transférer une playlist entière, regarde TuneMyMusic ou Soundiiz.'
+          : "Les pages d'artiste ne se convertissent pas : partage un titre ou un album précis.");
+      }
       throw new Error("Lien Apple Music non reconnu : il faut un lien de titre ou d'album.");
     }
 
@@ -69,15 +87,23 @@
       var j = 0;
       var lang = 'fr';
       if (p[0] && /^[a-z]{2}$/i.test(p[0])) { lang = p[0].toLowerCase(); j = 1; }
-      var kind = p[j];
+      var kind = (p[j] || '').toLowerCase();
       var id = ((p[j + 1] || '').match(/^(\d+)/) || [])[1];
       if ((kind === 'track' || kind === 'album') && id) {
         return { platform: 'deezer', kind: kind, id: id, lang: lang, url: url.href };
       }
+      if (kind === 'playlist' || kind === 'artist') {
+        throw new Error(kind === 'playlist'
+          ? 'Les playlists sont hors périmètre — pour transférer une playlist entière, regarde TuneMyMusic ou Soundiiz.'
+          : "Les pages d'artiste ne se convertissent pas : partage un titre ou un album précis.");
+      }
       throw new Error("Lien Deezer non reconnu : il faut un lien de titre ou d'album.");
     }
 
-    throw new Error('Plateforme non reconnue (' + host + '). Seuls Apple Music et Deezer sont gérés.');
+    var errUk = new Error('Plateforme non reconnue (' + host + ') : seuls Apple Music et Deezer sont gérés ici.');
+    errUk.searchUrl = 'https://song.link/' + encodeURIComponent(url.href);
+    errUk.linkLabel = 'Essayer via song.link';
+    throw errUk;
   }
 
   /* ------------------------------------------------------------------ */
@@ -186,10 +212,26 @@
   }
 
   function manualSearchUrl(platform, src) {
-    var term = cleanQuotes((src.artist || '') + ' ' + (src.title || ''));
+    var term = cleanQuotes((src.artist || '') + ' ' +
+      String(src.title || '').replace(/\s*[\(\[][^\)\]]*[\)\]]/g, ' '));
     return platform === 'apple'
       ? 'https://music.apple.com/fr/search?term=' + encodeURIComponent(term)
       : 'https://www.deezer.com/search/' + encodeURIComponent(term);
+  }
+
+  // Terme de recherche « allégé » : titre sans parenthèses/suffixes, artiste principal.
+  function looseTerm(src) {
+    var t = String(src.title || '')
+      .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, ' ')
+      .replace(/\s*[-\u2013\u2014]\s*(single|ep)\s*$/i, ' ');
+    var a = String(src.artist || '').split(/\s*[,&]\s*/)[0];
+    return cleanQuotes(a + ' ' + t);
+  }
+
+  // Le CDN Deezer sert la même pochette en plusieurs tailles ; 120 px suffit
+  // pour un affichage 56-64 px (~-70 % de poids vs 250 px).
+  function deezerArt(u) {
+    return typeof u === 'string' ? u.replace('/250x250-', '/120x120-') : u;
   }
 
   function dedupe(cands) {
@@ -219,7 +261,7 @@
       album: x.album && x.album.title,
       durationSec: x.duration || null,
       url: x.link || 'https://www.deezer.com/track/' + x.id,
-      artwork: x.album && x.album.cover_medium
+      artwork: deezerArt(x.album && x.album.cover_medium)
     };
   }
 
@@ -229,7 +271,7 @@
       artist: x.artist && x.artist.name,
       count: x.nb_tracks || null,
       url: x.link || 'https://www.deezer.com/album/' + x.id,
-      artwork: x.cover_medium
+      artwork: deezerArt(x.cover_medium)
     };
   }
 
@@ -286,7 +328,7 @@
         var results = lu.results || [];
         if (parsed.kind === 'track') {
           var r = results.filter(function (x) { return x.kind === 'song'; })[0];
-          if (!r) throw new Error('Titre introuvable sur Apple Music (id ' + parsed.id + ').');
+          if (!r) throw new Error('Titre introuvable sur Apple Music.');
           return {
             platform: 'apple', kind: 'track',
             title: r.trackName, artist: r.artistName, album: r.collectionName,
@@ -296,7 +338,7 @@
           };
         }
         var c = results.filter(function (x) { return x.wrapperType === 'collection'; })[0];
-        if (!c) throw new Error('Album introuvable sur Apple Music (id ' + parsed.id + ').');
+        if (!c) throw new Error('Album introuvable sur Apple Music.');
         return {
           platform: 'apple', kind: 'album',
           title: c.collectionName, artist: c.artistName,
@@ -310,7 +352,7 @@
     var path = parsed.kind === 'track' ? '/track/' : '/album/';
     return fetchJson(DEEZER + path + parsed.id, { jsonp: true }).then(function (t) {
       if (!t || t.error) {
-        throw new Error((parsed.kind === 'track' ? 'Titre' : 'Album') + ' introuvable sur Deezer (id ' + parsed.id + ').');
+        throw new Error((parsed.kind === 'track' ? 'Titre' : 'Album') + ' introuvable sur Deezer.');
       }
       if (parsed.kind === 'track') {
         return {
@@ -318,7 +360,7 @@
           title: t.title, artist: t.artist && t.artist.name,
           album: t.album && t.album.title,
           durationSec: t.duration || null, isrc: t.isrc || null,
-          artwork: t.album && t.album.cover_medium,
+          artwork: deezerArt(t.album && t.album.cover_medium),
           url: t.link || parsed.url
         };
       }
@@ -326,7 +368,7 @@
         platform: 'deezer', kind: 'album',
         title: t.title, artist: t.artist && t.artist.name,
         count: t.nb_tracks || null, upc: t.upc || null,
-        artwork: t.cover_medium,
+        artwork: deezerArt(t.cover_medium),
         url: t.link || parsed.url
       };
     });
@@ -364,7 +406,7 @@
     return fetchJson(ITUNES + '/lookup?' + q({ id: parsed.id, country: parsed.country || 'fr' }))
       .then(function (lu) {
         var r = (lu.results || []).filter(function (x) { return x.kind === 'song'; })[0];
-        if (!r) throw new Error('Titre introuvable sur Apple Music (id ' + parsed.id + ').');
+        if (!r) throw new Error('Titre introuvable sur Apple Music.');
         src = {
           platform: 'apple', kind: 'track',
           title: r.trackName, artist: r.artistName, album: r.collectionName,
@@ -373,14 +415,19 @@
           url: cleanAppleUrl(r.trackViewUrl) || parsed.url
         };
         var strictQ = 'artist:"' + cleanQuotes(src.artist) + '" track:"' + cleanQuotes(src.title) + '"';
-        return fetchJson(DEEZER + '/search?' + q({ q: strictQ, limit: 25 }), { jsonp: true });
+        return fetchJson(DEEZER + '/search?' + q({ q: strictQ, limit: 10 }), { jsonp: true });
       })
       .then(function (strict) {
         var cands = (strict.data || []).map(deezerTrackCand);
         if (bestScore(cands, src) >= 6) return cands;
-        return fetchJson(DEEZER + '/search?' + q({ q: cleanQuotes(src.artist + ' ' + src.title), limit: 25 }), { jsonp: true })
+        return fetchJson(DEEZER + '/search?' + q({ q: cleanQuotes(src.artist + ' ' + src.title), limit: 10 }), { jsonp: true })
           .then(function (loose) {
-            return dedupe(cands.concat((loose.data || []).map(deezerTrackCand)));
+            var merged = dedupe(cands.concat((loose.data || []).map(deezerTrackCand)));
+            if (bestScore(merged, src) >= 4) return merged;
+            return fetchJson(DEEZER + '/search?' + q({ q: looseTerm(src), limit: 10 }), { jsonp: true })
+              .then(function (third) {
+                return dedupe(merged.concat((third.data || []).map(deezerTrackCand)));
+              });
           });
       })
       .then(function (cands) { return finish(src, cands, 'deezer', 'track'); });
@@ -390,23 +437,30 @@
     var src;
     return fetchJson(DEEZER + '/track/' + parsed.id, { jsonp: true })
       .then(function (t) {
-        if (!t || t.error) throw new Error('Titre introuvable sur Deezer (id ' + parsed.id + ').');
+        if (!t || t.error) throw new Error('Titre introuvable sur Deezer.');
         src = {
           platform: 'deezer', kind: 'track',
           title: t.title, artist: t.artist && t.artist.name,
           album: t.album && t.album.title,
           durationSec: t.duration || null, isrc: t.isrc || null,
-          artwork: t.album && t.album.cover_medium,
+          artwork: deezerArt(t.album && t.album.cover_medium),
           url: t.link || parsed.url
         };
         return fetchJson(ITUNES + '/search?' + q({
           term: cleanQuotes(src.artist + ' ' + src.title),
           entity: 'song', media: 'music',
-          country: appleCountry(parsed.lang), limit: 25
+          country: appleCountry(parsed.lang), limit: 10
         }));
       })
       .then(function (se) {
-        return finish(src, (se.results || []).map(itunesSongCand), 'apple', 'track');
+        var cands = (se.results || []).map(itunesSongCand);
+        if (bestScore(cands, src) >= 4) return finish(src, cands, 'apple', 'track');
+        return fetchJson(ITUNES + '/search?' + q({
+          term: looseTerm(src), entity: 'song', media: 'music',
+          country: appleCountry(parsed.lang), limit: 10
+        })).then(function (se2) {
+          return finish(src, dedupe(cands.concat((se2.results || []).map(itunesSongCand))), 'apple', 'track');
+        });
       });
   }
 
@@ -415,7 +469,7 @@
     return fetchJson(ITUNES + '/lookup?' + q({ id: parsed.id, country: parsed.country || 'fr' }))
       .then(function (lu) {
         var r = (lu.results || []).filter(function (x) { return x.wrapperType === 'collection'; })[0];
-        if (!r) throw new Error('Album introuvable sur Apple Music (id ' + parsed.id + ').');
+        if (!r) throw new Error('Album introuvable sur Apple Music.');
         src = {
           platform: 'apple', kind: 'album',
           title: r.collectionName, artist: r.artistName,
@@ -423,14 +477,19 @@
           url: cleanAppleUrl(r.collectionViewUrl) || parsed.url
         };
         var strictQ = 'artist:"' + cleanQuotes(src.artist) + '" album:"' + cleanQuotes(src.title) + '"';
-        return fetchJson(DEEZER + '/search/album?' + q({ q: strictQ, limit: 25 }), { jsonp: true });
+        return fetchJson(DEEZER + '/search/album?' + q({ q: strictQ, limit: 10 }), { jsonp: true });
       })
       .then(function (strict) {
         var cands = (strict.data || []).map(deezerAlbumCand);
         if (bestScore(cands, src) >= 6) return cands;
-        return fetchJson(DEEZER + '/search/album?' + q({ q: cleanQuotes(src.artist + ' ' + src.title), limit: 25 }), { jsonp: true })
+        return fetchJson(DEEZER + '/search/album?' + q({ q: cleanQuotes(src.artist + ' ' + src.title), limit: 10 }), { jsonp: true })
           .then(function (loose) {
-            return dedupe(cands.concat((loose.data || []).map(deezerAlbumCand)));
+            var merged = dedupe(cands.concat((loose.data || []).map(deezerAlbumCand)));
+            if (bestScore(merged, src) >= 4) return merged;
+            return fetchJson(DEEZER + '/search/album?' + q({ q: looseTerm(src), limit: 10 }), { jsonp: true })
+              .then(function (third) {
+                return dedupe(merged.concat((third.data || []).map(deezerAlbumCand)));
+              });
           });
       })
       .then(function (cands) { return finish(src, cands, 'deezer', 'album'); });
@@ -441,12 +500,12 @@
     var country;
     return fetchJson(DEEZER + '/album/' + parsed.id, { jsonp: true })
       .then(function (a) {
-        if (!a || a.error) throw new Error('Album introuvable sur Deezer (id ' + parsed.id + ').');
+        if (!a || a.error) throw new Error('Album introuvable sur Deezer.');
         src = {
           platform: 'deezer', kind: 'album',
           title: a.title, artist: a.artist && a.artist.name,
           count: a.nb_tracks || null, upc: a.upc || null,
-          artwork: a.cover_medium,
+          artwork: deezerArt(a.cover_medium),
           url: a.link || parsed.url
         };
         country = appleCountry(parsed.lang);
@@ -472,7 +531,7 @@
         // Pas de correspondance UPC : repli sur la recherche classique.
         return fetchJson(ITUNES + '/search?' + q({
           term: cleanQuotes(src.artist + ' ' + src.title),
-          entity: 'album', media: 'music', country: country, limit: 25
+          entity: 'album', media: 'music', country: country, limit: 10
         })).then(function (se) {
           var cands = (se.results || []).map(function (x) {
             return {
@@ -503,10 +562,12 @@
       }
       var parsed = typeof input === 'string' ? parseMusicLink(input) : input;
       if (parsed.kind === 'short') {
-        throw new Error(
-          'Les liens courts (deezer.page.link) ne peuvent pas être résolus depuis le navigateur : ' +
-          "ouvre le lien puis copie l'adresse complète (www.deezer.com/…)."
-        );
+        var dead = parsed.url.indexOf('page.link') !== -1;
+        var errShort = new Error(dead
+          ? 'Ce lien court deezer.page.link ne fonctionne plus (service arrêté) : demande plutôt le lien complet www.deezer.com/…'
+          : "Ce lien court ne peut pas être résolu ici : ouvre-le, puis copie l'adresse complète (www.deezer.com/…) et colle-la.");
+        if (!dead) { errShort.searchUrl = parsed.url; errShort.linkLabel = 'Ouvrir le lien court'; }
+        throw errShort;
       }
       var fetchJson = opts.fetchJson;
       if (opts.to === 'youtube' || opts.to === 'ytmusic') return toYouTube(parsed, fetchJson, opts.to);

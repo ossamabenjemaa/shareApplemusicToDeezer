@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ossamabenjemaa.github.io/shareApplemusicToDeezer/sitemap.xml

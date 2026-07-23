@@ -3,9 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Passerelle musicale — Apple Music ↔ Deezer</title>
-<meta name="description" content="Convertis un lien Apple Music en lien Deezer (et inversement), directement dans le navigateur.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858593' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18V5l12-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='18' cy='16' r='3'/></svg>">
+<title>Convertisseur Apple Music ↔ Deezer — Passerelle musicale</title>
+<meta name="description" content="Colle un lien Apple Music, obtiens le lien Deezer exact (et inversement) — gratuit, sans compte, directement dans le navigateur.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://api.deezer.com; connect-src 'self' https://itunes.apple.com; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none'; form-action 'none'">
+<link rel="canonical" href="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/">
+<meta property="og:title" content="Convertisseur Apple Music ↔ Deezer">
+<meta property="og:description" content="Colle un lien, obtiens l'équivalent sur l'autre plateforme — gratuit, sans compte.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Passerelle musicale">
+<meta property="og:url" content="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/app/">
+<meta property="og:image" content="https://ossamabenjemaa.github.io/shareApplemusicToDeezer/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://itunes.apple.com" crossorigin>
+<link rel="preconnect" href="https://api.deezer.com">
+<link rel="dns-prefetch" href="https://is1-ssl.mzstatic.com">
+<link rel="dns-prefetch" href="https://cdn-images.dzcdn.net">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cstyle%3E*%7Bfill:%23111113%7D@media(prefers-color-scheme:dark)%7B*%7Bfill:%23f4f4f6%7D%7D%3C/style%3E%3Cpath%20d='M12,4.5L27.5,2.5v3L12,7.5z'/%3E%3Cpath%20d='M12,9.5L27.5,7.5v3L12,12.5z'/%3E%3Crect%20x='12'%20y='4.5'%20width='2'%20height='19'/%3E%3Crect%20x='25.5'%20y='2.5'%20width='2'%20height='19'/%3E%3Cellipse%20cx='10.2'%20cy='23.5'%20rx='3.8'%20ry='2.8'/%3E%3Cellipse%20cx='23.7'%20cy='21.5'%20rx='3.8'%20ry='2.8'/%3E%3C/svg%3E">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Passerelle">
@@ -14,7 +29,7 @@
 <style>
   :root {
     color-scheme: light dark;
-    --apple: #fa233b;
+    --apple: #e11d33;
     --deezer: #a238ff;
     --bg: #fafafa;
     --surface: #ffffff;
@@ -29,6 +44,7 @@
     --warn: #b47d00;
     --err: #c93025;
     --yt: #e51b1b;
+    --input-border: #86868e;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -44,7 +60,8 @@
       --ok: #45c078;
       --warn: #d4a437;
       --err: #e57368;
-      --yt: #ff5449;
+      --yt: #e51b1b;
+      --input-border: #6a6a74;
     }
   }
 
@@ -105,16 +122,30 @@
     height: 44px;
     padding: 0 12px;
     border-radius: 10px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--input-border);
     background: var(--surface);
     color: var(--text);
     font: inherit;
     transition: border-color 150ms ease;
   }
-  input::placeholder { color: color-mix(in srgb, var(--muted) 65%, transparent); }
+  input::placeholder { color: var(--muted); }
   input:focus { border-color: color-mix(in srgb, var(--text) 35%, var(--line)); }
 
   button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { opacity: .55; cursor: default; }
+  .skip {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--surface); color: var(--text);
+    padding: 10px 14px; border: 1px solid var(--line); border-radius: 0 0 10px 0;
+  }
+  .skip:focus { left: 0; z-index: 10; }
+  .brandline {
+    width: 56px; height: 2px; border-radius: 1px; margin-top: 12px;
+    background: linear-gradient(90deg, var(--apple), var(--deezer));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
   button:active { transform: scale(0.99); }
 
   .icon-btn {
@@ -204,7 +235,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
+    min-height: 44px;
     padding: 6px 11px;
     border: 1px solid var(--line);
     border-radius: 999px;
@@ -221,7 +252,7 @@
   .conf.exacte .dot { background: var(--ok); }
   .conf.probable .dot { background: var(--warn); }
   .conf.incertaine .dot { background: var(--err); }
-  .conf.recherche .dot { background: var(--yt); }
+  .conf.recherche .dot { background: var(--muted); }
   .conf .ico { color: var(--muted); }
 
   .explain {
@@ -253,7 +284,7 @@
   .lvl[data-conf="exacte"] .lvl-dot { background: var(--ok); }
   .lvl[data-conf="probable"] .lvl-dot { background: var(--warn); }
   .lvl[data-conf="incertaine"] .lvl-dot { background: var(--err); }
-  .lvl[data-conf="recherche"] .lvl-dot { background: var(--yt); }
+  .lvl[data-conf="recherche"] .lvl-dot { background: var(--muted); }
   .lvl.current { border-color: var(--line); background: var(--surface); }
   .now { display: none; font-weight: 600; color: var(--text); }
   .lvl.current .now { display: inline; }
@@ -323,7 +354,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    min-height: 34px;
+    min-height: 44px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
@@ -353,7 +384,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-height: 34px;
+    min-height: 44px;
     font-size: 13px;
     color: var(--muted);
     text-decoration: none;
@@ -365,10 +396,12 @@
 
   /* ---------- Historique ---------- */
   .history { margin-top: 28px; }
-  .history h2 {
+  .history-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+  .history h2 {
     margin: 0;
     font-size: 12px;
     font-weight: 600;
@@ -430,16 +463,33 @@
 
   footer { margin-top: 32px; font-size: 12.5px; line-height: 1.6; color: var(--muted); }
   footer p { margin: 0; }
+  footer a { color: inherit; }
+  .tryit { margin: 10px 0 0; text-align: center; font-size: 12.5px; }
+  .tryit a { color: var(--muted); }
+  .tryit a:hover { color: var(--text); }
+  .srcline { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+  .bdot.yt { background: var(--yt); }
+  .sr {
+    position: absolute; width: 1px; height: 1px;
+    clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+  }
 </style>
 </head>
 <body>
+<a class="skip" href="#link">Aller au champ de conversion</a>
 <div class="wrap">
   <header>
-    <p class="eyebrow">Passerelle musicale</p>
-    <h1><span class="bdot apple" aria-hidden="true"></span>Apple Music<span class="arr">↔</span><span class="bdot deezer" aria-hidden="true"></span>Deezer</h1>
-    <p class="sub">Colle un lien de titre ou d'album, récupère son équivalent sur l'autre plateforme.</p>
+    <p class="eyebrow"><a href="../">Passerelle musicale</a></p>
+    <h1 id="pageTitle"><span class="bdot apple" aria-hidden="true"></span>Apple Music<span class="arr">↔</span><span class="bdot deezer" aria-hidden="true"></span>Deezer</h1>
+    <p class="sub" id="pageSub">Colle un lien de titre ou d'album, récupère son équivalent sur l'autre plateforme.</p>
+    <div class="brandline" aria-hidden="true"></div>
   </header>
 
+  <noscript><p class="sub">Ce convertisseur a besoin de JavaScript pour interroger les catalogues
+  publics d'iTunes et de Deezer. Active-le, ou cherche le titre à la main sur music.apple.com
+  et deezer.com.</p></noscript>
+
+  <main>
   <div class="card">
     <label for="link">Ton lien (titre ou album)</label>
     <div class="row">
@@ -450,8 +500,9 @@
       </button>
     </div>
     <button id="go" class="go" type="button">Convertir</button>
+    <p class="tryit"><a href="?url=https%3A%2F%2Fmusic.apple.com%2Ffr%2Falbum%2Fghost%2F1634875613%3Fi%3D1634875617">Essayer avec un exemple</a></p>
 
-    <div id="status" class="status"></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
 
     <div id="result" class="result">
       <span id="direction" class="overline"></span>
@@ -462,11 +513,12 @@
           <div class="a" id="rArtist"></div>
         </div>
       </div>
-      <span id="confidence" class="conf">
+      <button id="confidence" type="button" class="conf" aria-expanded="false" aria-controls="confExplain">
         <span class="dot" aria-hidden="true"></span>
         <span id="confLabel"></span>
         <svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-      </span>
+      </button>
+      <p id="srcLine" class="srcline" hidden></p>
       <div id="confExplain" class="explain">
         <p><strong>Comment la correspondance est trouvée ?</strong> Il n'existe pas
         d'identifiant commun public entre Apple Music et Deezer pour les titres.
@@ -540,13 +592,16 @@
   </div>
 
   <div class="history" id="historyBox" hidden>
-    <h2><span>Conversions récentes</span> <button id="clearHistory" type="button">Effacer</button></h2>
+    <div class="history-head"><h2>Conversions récentes</h2> <button id="clearHistory" type="button">Effacer</button></div>
     <ul id="historyList"></ul>
   </div>
+  </main>
+
+  <p id="announce" class="sr" role="status" aria-live="polite"></p>
 
   <footer>
-    <p>POC 100 % navigateur — APIs publiques iTunes &amp; Deezer, aucun compte, aucune clé.</p>
-    <p>Astuce iPhone : ajoute le raccourci « Partager sur Deezer » (voir le README du projet).</p>
+    <p>Fait maison — 100 % navigateur, APIs publiques iTunes &amp; Deezer, aucun compte, aucune donnée collectée.</p>
+    <p>Sur iPhone : <a href="../#raccourci">installe le raccourci « Partager sur Deezer »</a> pour convertir en deux taps.</p>
   </footer>
 </div>
 
@@ -578,9 +633,13 @@
   }
   function fetchJson(url, opts) {
     if (opts && opts.jsonp) return jsonpFetch(url);
-    return fetch(url).then(function (res) {
-      if (!res.ok) throw new Error('Erreur réseau (HTTP ' + res.status + ').');
+    var signal;
+    try { signal = AbortSignal.timeout(15000); } catch (e) { signal = undefined; }
+    return fetch(url, signal ? { signal: signal } : {}).then(function (res) {
+      if (!res.ok) throw new Error('Apple Music ne répond pas pour le moment (HTTP ' + res.status + ') — réessaie dans une minute.');
       return res.json();
+    }, function () {
+      throw new Error('Impossible de joindre Apple Music — vérifie ta connexion puis réessaie.');
     });
   }
 
@@ -611,7 +670,7 @@
 
   /* ---------- Historique ---------- */
   function loadHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch (e) { return []; }
+    try { var v = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
   }
   function saveHistory(list) {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 8))); } catch (e) {}
@@ -657,11 +716,40 @@
   $('clearHistory').onclick = function () { saveHistory([]); renderHistory(); };
 
   /* ---------- Affichage ---------- */
-  function setStatus(kind, html) {
+  function setStatus(kind, message, opts) {
     var el = $('status');
     el.className = 'status' + (kind ? ' ' + kind : '');
-    el.innerHTML = html || '';
-    el.style.display = html ? (kind === 'loading' ? 'flex' : 'block') : 'none';
+    el.textContent = '';
+    if (!message) { el.style.display = 'none'; return; }
+    if (kind === 'loading') {
+      var spin = document.createElement('span');
+      spin.className = 'spin';
+      spin.setAttribute('aria-hidden', 'true');
+      el.appendChild(spin);
+    }
+    el.appendChild(document.createTextNode(message + (opts && (opts.link || opts.retry) ? ' ' : '')));
+    if (opts && opts.link) {
+      var a = document.createElement('a');
+      a.href = opts.link.href;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = opts.link.label;
+      el.appendChild(a);
+    }
+    if (opts && opts.retry) {
+      if (opts.link) el.appendChild(document.createTextNode(' · '));
+      var r = document.createElement('a');
+      r.href = '#';
+      r.textContent = 'Réessayer';
+      r.addEventListener('click', function (e) { e.preventDefault(); run(); });
+      el.appendChild(r);
+    }
+    el.style.display = kind === 'loading' ? 'flex' : 'block';
+  }
+
+  function announce(text) {
+    var el = $('announce');
+    if (el) el.textContent = text;
   }
   function showResult(res) {
     var from = MC.platformLabel(res.source.platform);
@@ -678,15 +766,22 @@
       : conf === 'probable' ? 'Correspondance probable'
       : conf === 'recherche' ? 'Lien de recherche'
       : 'À vérifier';
-    chip.title = 'Toucher pour comprendre ce statut';
-    chip.setAttribute('role', 'button');
-    chip.setAttribute('tabindex', '0');
+    chip.title = 'Comprendre ce statut';
     chip.setAttribute('aria-expanded', 'false');
     var panel = $('confExplain');
     panel.classList.remove('open');
     Array.prototype.forEach.call(panel.querySelectorAll('.lvl'), function (row) {
       row.classList.toggle('current', row.getAttribute('data-conf') === conf);
     });
+    var srcLine = $('srcLine');
+    if (conf === 'probable' || conf === 'incertaine') {
+      srcLine.textContent = 'Depuis : ' + (res.source.title || '') + ' — ' + (res.source.artist || '');
+      srcLine.hidden = false;
+    } else {
+      srcLine.hidden = true;
+    }
+    document.title = (res.target.title || 'Conversion') + ' → ' + to + ' — Passerelle musicale';
+    announce('Résultat : ' + $('confLabel').textContent + ' — ' + (res.target.title || '') + ', ' + (res.target.artist || '') + '.');
     $('rUrl').textContent = res.target.url;
     var open = $('open');
     open.href = res.target.url;
@@ -719,7 +814,7 @@
     });
 
     $('copy').onclick = function () {
-      copyText(res.target.url).then(function () { flash($('copy'), 'Copié'); });
+      copyText(res.target.url).then(function () { flash($('copy'), 'Copié'); announce('Lien copié.'); });
     };
     var shareBtn = $('share');
     if (navigator.share) {
@@ -751,21 +846,21 @@
     var value = $('link').value.trim();
     if (!value) { setStatus('error', 'Colle d’abord un lien Apple Music ou Deezer.'); return; }
     busy = true;
+    $('go').disabled = true;
     $('result').style.display = 'none';
-    setStatus('loading', '<span class="spin" aria-hidden="true"></span><span>Recherche de la correspondance…</span>');
+    setStatus('loading', 'Recherche de la correspondance…');
     MC.convert(value, { fetchJson: fetchJson, to: toParam })
       .then(function (res) {
         setStatus('', '');
         showResult(res);
       })
       .catch(function (err) {
-        var html = err.message;
-        if (err.searchUrl) {
-          html += ' <a href="' + err.searchUrl + '" target="_blank" rel="noopener">Chercher manuellement</a>';
-        }
-        setStatus('error', html);
+        var opts = {};
+        if (err.searchUrl) opts.link = { href: err.searchUrl, label: err.linkLabel || 'Chercher manuellement' };
+        if (/joindre|répond pas|connexion/i.test(err.message)) opts.retry = true;
+        setStatus('error', err.message, opts);
       })
-      .then(function () { busy = false; });
+      .then(function () { busy = false; $('go').disabled = false; });
   }
 
   function toggleConfExplain() {
@@ -795,7 +890,20 @@
 
   /* ---------- Paramètres ?to= et ?url= (raccourcis iOS / partage) ---------- */
   var qs = window.location.search.slice(1);
-  var toParam = (qs.match(/(?:^|&)to=(youtube|ytmusic)(?:&|$)/) || [])[1];
+  var toRaw = (qs.match(/(?:^|&)to=([^&]*)/) || [])[1];
+  var toParam = (toRaw === 'youtube' || toRaw === 'ytmusic') ? toRaw : undefined;
+  if (toParam) {
+    var ytLabel = toParam === 'ytmusic' ? 'YouTube Music' : 'YouTube';
+    $('pageTitle').innerHTML = '<span class="bdot apple" aria-hidden="true"></span>Apple Music<span class="arr">·</span>' +
+      '<span class="bdot deezer" aria-hidden="true"></span>Deezer<span class="arr">→</span>' +
+      '<span class="bdot yt" aria-hidden="true"></span>' + ytLabel;
+    $('pageSub').textContent = 'Colle un lien Apple Music ou Deezer : tu obtiens le lien ' + ytLabel + ' correspondant.';
+    document.title = 'Vers ' + ytLabel + ' — Passerelle musicale';
+  } else if (toRaw) {
+    var toClean;
+    try { toClean = decodeURIComponent(toRaw); } catch (e) { toClean = toRaw; }
+    setStatus('error', 'Cible « ' + toClean + ' » inconnue — conversion Apple ↔ Deezer classique.');
+  }
   var m = qs.match(/(?:^|&)(?:url|q|link)=(.+)$/);
   if (m) {
     var raw = m[1];

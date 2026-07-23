@@ -21,4 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Tests hors-ligne (bloque la publication en cas de régression)
+        run: node --test test.js
       - run: git push --force origin HEAD:gh-pages
